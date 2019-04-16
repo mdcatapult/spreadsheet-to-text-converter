@@ -1,0 +1,4 @@
+[0m[[0m[31merror[0m] [0m[0m/home/baydr.earles/Projects/workbench/poseidon/consumer-totsvconverter/src/main/scala/PreserveCoordinatesContentHandler.scala:53:69: type ContentHandlerDecorator is not a member of package org.apache.tika.sax[0m
+[0m[[0m[31merror[0m] [0m[0mclass PreserveCoordinatesContentHandler extends org.apache.tika.sax.ContentHandlerDecorator {[0m
+[0m[[0m[31merror[0m] [0m[0m                                                                    ^[0m
+[0m[[0m[31merror[0m] [0m[0mone error found[0m

@@ -1,0 +1,11 @@
+/.idea*
+/.project*
+/log/*
+!/log/.gitkeep
+target/*
+project/project
+project/target
+/tmp
+
+*.cfx
+
