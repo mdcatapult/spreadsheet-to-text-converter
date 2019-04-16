@@ -226,7 +226,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val contentBuilder = new StringBuilder()
 
         while (rowIterator.hasNext()) {
-          val row = rowIterator.next();ls
+          val row = rowIterator.next();
 
 
           val cellIterator = row.cellIterator();
