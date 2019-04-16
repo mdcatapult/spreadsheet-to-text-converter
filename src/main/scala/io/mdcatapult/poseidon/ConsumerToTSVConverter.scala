@@ -83,6 +83,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       case Success(value) ⇒
 
 //        val inputFilepath = "/efs/dev/source/PMC999/Scenario1.xlsx"
+//        val inputFilepath = "/efs/ebi/supplementary_data/PMC3446998/pone.0044872.s008.xls"
         val inputFilepath = value.asString().getValue
 
         println(inputFilepath)
@@ -98,9 +99,9 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
               createOutputDirectory(outputDirectory)
 
-              writeTSV(sheetItem._2, outputFilenamePart1, outputFilenamePart2, outputDirectory)
-
-
+              if (sheetItem._2 != "") {
+                writeTSV(sheetItem._2, outputFilenamePart1, outputFilenamePart2, outputDirectory)
+              }
             }
           }
       case Failure(e) ⇒ println(e)
@@ -217,7 +218,6 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
         val dataFormatter = new DataFormatter();
 
-        // You can obtain a rowIterator and columnIterator and iterate over them
         System.out.println("\n\nIterating over Rows and Columns using Iterator\n");
         val rowIterator = sheet.rowIterator();
 
@@ -244,8 +244,15 @@ object ConsumerToTSVConverter extends App with LazyLogging {
           while (cellIterator.hasNext()) {
             val cell = cellIterator.next();
             val cellValue = dataFormatter.formatCellValue(cell);
-            System.out.print(cellValue + "\t");
-            contentBuilder.append(cellValue + "\t")
+
+            if (cellValue.contains("\n") || cellValue.contains("\t")) {
+              val quotedCellValue = "\"" + cellValue + "\""
+              System.out.print(quotedCellValue + "\t");
+              contentBuilder.append(quotedCellValue + "\t")
+            } else {
+              System.out.print(cellValue + "\t");
+              contentBuilder.append(cellValue + "\t")
+            }
           }
 
           System.out.println();
