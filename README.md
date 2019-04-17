@@ -35,3 +35,16 @@ The app allows runtime configuration via environment variables
 * **CONSUMER_QUEUE** - name of the queue to consume, will auto create and auto bind to exchange
 * **CONSUMER_TOPICS** - optiona: topics to use as routing keys when attaching to exchange (default: klein.ner.leadmine)
 * **CONSUMER_CONCURRENT** - optional: number of messages to handle concurrently (default: 1)
+* 
+
+These are the formats currently working with their mimetype counts in the document library. I've worked from the top down to make sure we can process as many docs as possible:
+
+{ "_id" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "count" : 133252 }
+{ "_id" : "application/vnd.ms-excel", "count" : 87792 }
+{ "_id" : "text/csv", "count" : 70305 }
+{ "_id" : "application/vnd.ms-excel.sheet.macroenabled.12", "count" : 142 }
+
+Not currently processing:
+
+{ "_id" : "application/vnd.oasis.opendocument.spreadsheet", "count" : 333 }
+{ "_id" : "application/vnd.oasis.opendocument.spreadsheet-template", "count" : 3 }
