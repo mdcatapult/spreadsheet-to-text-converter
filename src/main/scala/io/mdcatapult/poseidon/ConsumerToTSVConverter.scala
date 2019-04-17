@@ -226,8 +226,8 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val contentBuilder = new StringBuilder()
 
         while (rowIterator.hasNext()) {
-          val row = rowIterator.next();
 
+          val row = rowIterator.next();
 
           val cellIterator = row.cellIterator();
 
@@ -241,8 +241,20 @@ object ConsumerToTSVConverter extends App with LazyLogging {
             }
           }
 
+          var sourceCellColumn = 0
+
           while (cellIterator.hasNext()) {
+
             val cell = cellIterator.next();
+
+            // validates cell value is put in the correct column else add tab until it matches
+            // map cell value to reference on first line
+            val targetCellColumn = cell.getColumnIndex
+            while (targetCellColumn > sourceCellColumn) {
+              contentBuilder.append("\t")
+              sourceCellColumn += 1
+            }
+
             val cellValue = dataFormatter.formatCellValue(cell);
 
             if (cellValue.contains("\n") || cellValue.contains("\t")) {
@@ -253,6 +265,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
               System.out.print(cellValue + "\t");
               contentBuilder.append(cellValue + "\t")
             }
+            sourceCellColumn += 1
           }
 
           System.out.println();
