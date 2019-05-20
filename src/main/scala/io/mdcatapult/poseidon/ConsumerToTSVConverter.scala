@@ -104,7 +104,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
     collection.updateOne(equal("_id", document("_id")), combine(
       addToSet("derivatives", newFiles),
-      set("klein.totsv", true)
+      set(config.getString("upstream.queue"), true)
     )).toFutureOption()
 
   }
