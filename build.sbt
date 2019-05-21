@@ -51,13 +51,18 @@ lazy val root = (project in file(".")).
     assemblyJarName := "consumer-totsvconverter.jar",
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-//      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
-      case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.discard
-      case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
+      case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
+      case PathList("com", "sun", xs @ _*) => MergeStrategy.first
+      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
+      case PathList("javax", "activation", xs @ _*) => MergeStrategy.first
       case PathList("org", "apache", "commons", xs @ _*) => MergeStrategy.first
-//      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
+      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
+      case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
+      case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
+      case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
+      case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
-//      case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
+      case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case meta(_) => MergeStrategy.first
