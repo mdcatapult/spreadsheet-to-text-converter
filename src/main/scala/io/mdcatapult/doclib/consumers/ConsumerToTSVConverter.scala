@@ -3,7 +3,9 @@ package io.mdcatapult.doclib.consumers
 import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file.{Path, Paths}
+import java.util.stream.Collectors
 
+import scala.collection.JavaConverters._
 import akka.actor.ActorSystem
 import cats.data.OptionT
 import com.spingo.op_rabbit.SubscriptionRef
@@ -25,11 +27,12 @@ import org.bson.codecs.jsr310.LocalDateTimeCodec
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{addToSet, combine, set}
+import org.mongodb.scala.model.Updates.{addEachToSet, addToSet, combine, set}
 import org.mongodb.scala.result.UpdateResult
 import org.mongodb.scala.{Document, MongoCollection}
 import cats.implicits._
 import cats.data._
+import org.mongodb.scala.bson.{BsonArray, BsonString, BsonValue}
 
 import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -55,7 +58,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   val subscription: SubscriptionRef = queue.subscribe(handle, config.getInt("upstream.concurrent"))
   val collection: MongoCollection[Document] = new Mongo().getCollection()
   val outputBaseDirectory = config.getString("output.baseDirectory")
-  val downstream: Exchange[PrefetchMsg] = new Exchange[PrefetchMsg](config.getString("downstream.queue"))
+  val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
 
 
   def handle(msg: DoclibMsg, key: String): Future[Option[org.mongodb.scala.Document]] =
@@ -86,6 +89,10 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         Future.failed(ex)
     }
 
+  def enqueue(prefetchMsg: PrefetchMsg): Unit = {
+      downstream.send(prefetchMsg)
+  }
+
   def feedParser(document: Document): Future[Option[UpdateResult]] = {
     val inputFilepath = document("source").asString.getValue
     logger.debug(inputFilepath)
@@ -100,14 +107,32 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
       createOutputDirectory(outputDirectory)
       if (sheetItem._2 != "") {
-        newFiles += writeTSV(sheetItem._2, outputFilenamePart1, outputFilenamePart2, outputDirectory).toString
+        val newFile = writeTSV(sheetItem._2, outputFilenamePart1, outputFilenamePart2, outputDirectory).toString
+        newFiles += newFile
+
+        enqueue(new PrefetchMsg(newFile,
+          document("origin").asString.getValue,
+          document("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
+        ))
       }
     }
 
-    collection.updateOne(equal("_id", document("_id")), combine(
-      addToSet("derivatives", newFiles),
+//    val allFiles: List[String] = (document.get("derivatives").getOrElse(BsonArray()).asArray().getValues.asScala.flatMap({
+//      case d: BsonString ⇒ Some(d.getValue)
+//      case _ ⇒ None
+//    }).toList ::: newFiles.toList).distinct
+
+    var derivatives = combine()
+    for (f <- newFiles.toList) {
+      derivatives = combine(derivatives, addToSet("derivatives", f))
+    }
+
+    val update =  combine(
+      derivatives,
       set(config.getString("upstream.queue"), true)
-    )).toFutureOption()
+    )
+
+    collection.updateOne(equal("_id", document("_id")),update).toFutureOption()
 
   }
 
