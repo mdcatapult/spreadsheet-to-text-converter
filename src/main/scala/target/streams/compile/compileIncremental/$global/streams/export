@@ -1,1 +1,0 @@
-scalac -classpath /home/baydr.earles/Projects/workbench/poseidon/consumer-totsvconverter/src/main/scala/target/scala-2.12/classes -bootclasspath /home/baydr.earles/.sbt/boot/scala-2.12.7/lib/scala-library.jar /home/baydr.earles/Projects/workbench/poseidon/consumer-totsvconverter/src/main/scala/PreserveCoordinatesContentHandler.scala

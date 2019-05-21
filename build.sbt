@@ -13,7 +13,7 @@ lazy val root = (project in file(".")).
   settings(
     name              := "consumer-totsvconverter",
     version           := "0.1",
-    scalaVersion      := "2.12.7",
+    scalaVersion      := "2.12.8",
     scalacOptions     += "-Ypartial-unification",
     resolvers         ++= Seq(
       "MDC Nexus Public" at "http://nexus.mdcatapult.io/repository/maven-public/",
@@ -36,7 +36,6 @@ lazy val root = (project in file(".")).
       "org.typelevel" %% "cats-core"              % catsVersion,
       "io.mdcatapult.klein" %% "queue"            % "0.0.4",
       "io.mdcatapult.klein" %% "mongo"            % "0.0.3",
-      "com.nextmovesoftware" % "leadmine"         % "3.14.1",
       "org.apache.commons" % "commons-compress"       % "1.18",
       "org.apache.tika" % "tika-core"                 % tikaVersion,
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
@@ -52,13 +51,13 @@ lazy val root = (project in file(".")).
     assemblyJarName := "consumer-totsvconverter.jar",
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
-      case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
+//      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
+      case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
       case PathList("org", "apache", "commons", xs @ _*) => MergeStrategy.first
-      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
+//      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
-      case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
+//      case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case meta(_) => MergeStrategy.first
