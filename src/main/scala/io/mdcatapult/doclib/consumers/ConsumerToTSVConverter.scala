@@ -107,7 +107,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
       createOutputDirectory(outputDirectory)
       if (sheetItem._2 != "") {
-        val newFile = writeTSV(sheetItem._2, outputFilenamePart1, outputFilenamePart2, outputDirectory).toString
+        val newFile = writeTSV(sheetItem._2, pmcNumber, outputFilenamePart1, outputFilenamePart2, outputDirectory).toString
         newFiles += newFile
 
         enqueue(new PrefetchMsg(newFile,
@@ -136,13 +136,13 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
   }
 
-  def writeTSV(content: String, outputFilenamePart1: String, outputFilenamePart2: String, outputDirectory: String): Path = {
+  def writeTSV(content: String, pmcNumber: String, outputFilenamePart1: String, outputFilenamePart2: String, outputDirectory: String): Path = {
     require(content != "")
     require(outputFilenamePart1 != "")
     require(outputFilenamePart2 != "")
     require(outputDirectory != "")
 
-    val filename: Path = Paths.get(outputDirectory, outputFilenamePart1 + "_" + outputFilenamePart2 + ".tsv")
+    val filename: Path = Paths.get(outputDirectory, pmcNumber + "_" + outputFilenamePart1 + "_" + outputFilenamePart2 + ".tsv")
     val outputFile = new File(filename.toString)
     val bw = new BufferedWriter(new FileWriter(outputFile))
     bw.write(content)
