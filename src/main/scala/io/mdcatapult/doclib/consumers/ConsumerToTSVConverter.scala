@@ -107,9 +107,10 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       val (outputDirectoryPart2: String, outputFilename: String) = getOutputFilepathParts(inputFilepath, sheetItem._1)
       val outputDirectory = s"$outputBaseDirectory/$pmcNumber"
 
-      createOutputDirectory(outputDirectory + "/" + outputDirectoryPart2)
+      val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
+      createOutputDirectory(fullOutputDirectory)
       if (sheetItem._2 != "") {
-        val newFile = writeTSV(sheetItem._2, outputDirectory, count.toString, outputFilename).toString
+        val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
         newFiles += newFile
 
         enqueue(new PrefetchMsg(newFile,
@@ -163,9 +164,9 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     require(sheetName != "")
 
     val inputFilename = new File(inputFilepath).getName
-    val outputFilenamePart1 = FilenameUtils.removeExtension(inputFilename.trim().replace(" ", "_"))
-    val outputFilenamePart2 = sheetName.trim().replace(" ", "_")
-    (outputFilenamePart1, outputFilenamePart2)
+    val outputDirectory = FilenameUtils.removeExtension(inputFilename.trim().replace(" ", "_"))
+    val outputFilename = sheetName.trim().replace(" ", "_")
+    (outputDirectory, outputFilename)
   }
 
   def getPMCNumber(inputFilepath: String): String = {
