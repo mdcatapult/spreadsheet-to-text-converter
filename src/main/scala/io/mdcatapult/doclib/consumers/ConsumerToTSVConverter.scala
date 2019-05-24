@@ -71,7 +71,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
           val query = equal("_id", new ObjectId(id))
           (for {
             doc ← OptionT(collection.find(query).first.toFutureOption())
-            _ ← OptionT(feedParser(doc))
+            _ ← OptionT(feedParser(id, doc))
           } yield doc).value
 
         case _ ⇒
@@ -94,7 +94,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       downstream.send(prefetchMsg)
   }
 
-  def feedParser(document: Document): Future[Option[UpdateResult]] = {
+  def feedParser(id: String, document: Document): Future[Option[UpdateResult]] = {
     val inputFilepath = document("source").asString.getValue
     logger.debug(inputFilepath)
     val sheetMap = parseDocument(inputFilepath)
@@ -114,7 +114,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         newFiles += newFile
 
         enqueue(new PrefetchMsg(newFile,
-          document("id").asString.getValue,
+          id,
           document("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
         ))
       }
