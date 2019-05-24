@@ -114,7 +114,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         newFiles += newFile
 
         enqueue(new PrefetchMsg(newFile,
-          document("origin").asString.getValue,
+          document("id").asString.getValue,
           document("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
         ))
       }
