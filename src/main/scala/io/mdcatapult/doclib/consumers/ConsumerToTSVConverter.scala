@@ -33,6 +33,7 @@ import org.mongodb.scala.{Document, MongoCollection}
 import cats.implicits._
 import cats.data._
 import org.mongodb.scala.bson.{BsonArray, BsonString, BsonValue}
+import org.apache.commons.io.FilenameUtils;
 
 import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -100,14 +101,15 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
 
     val newFiles = mutable.ListBuffer[String]()
+    var count = 1
     for (sheetItem ← sheetMap) {
       val pmcNumber: String = getPMCNumber(inputFilepath)
-      val (outputFilenamePart1: String, outputFilenamePart2: String) = getOutputFilepathParts(inputFilepath, sheetItem._1)
+      val (outputDirectoryPart2: String, outputFilename: String) = getOutputFilepathParts(inputFilepath, sheetItem._1)
       val outputDirectory = s"$outputBaseDirectory/$pmcNumber"
 
-      createOutputDirectory(outputDirectory)
+      createOutputDirectory(outputDirectory + "/" + outputDirectoryPart2)
       if (sheetItem._2 != "") {
-        val newFile = writeTSV(sheetItem._2, pmcNumber, outputFilenamePart1, outputFilenamePart2, outputDirectory).toString
+        val newFile = writeTSV(sheetItem._2, outputDirectory, count.toString, outputFilename).toString
         newFiles += newFile
 
         enqueue(new PrefetchMsg(newFile,
@@ -136,13 +138,12 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
   }
 
-  def writeTSV(content: String, pmcNumber: String, outputFilenamePart1: String, outputFilenamePart2: String, outputDirectory: String): Path = {
+  def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
     require(content != "")
-    require(outputFilenamePart1 != "")
-    require(outputFilenamePart2 != "")
+    require(outputFilename != "")
     require(outputDirectory != "")
 
-    val filename: Path = Paths.get(outputDirectory, pmcNumber + "_" + outputFilenamePart1 + "_" + outputFilenamePart2 + ".tsv")
+    val filename: Path = Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv")
     val outputFile = new File(filename.toString)
     val bw = new BufferedWriter(new FileWriter(outputFile))
     bw.write(content)
@@ -162,7 +163,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     require(sheetName != "")
 
     val inputFilename = new File(inputFilepath).getName
-    val outputFilenamePart1 = inputFilename.trim().replace(" ", "_")
+    val outputFilenamePart1 = FilenameUtils.removeExtension(inputFilename.trim().replace(" ", "_"))
     val outputFilenamePart2 = sheetName.trim().replace(" ", "_")
     (outputFilenamePart1, outputFilenamePart2)
   }
