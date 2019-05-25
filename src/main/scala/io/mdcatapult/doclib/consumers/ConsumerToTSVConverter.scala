@@ -32,9 +32,12 @@ import org.mongodb.scala.result.UpdateResult
 import org.mongodb.scala.{Document, MongoCollection}
 import cats.implicits._
 import cats.data._
-import org.mongodb.scala.bson.{BsonArray, BsonString, BsonValue}
-import org.apache.commons.io.FilenameUtils;
+import org.mongodb.scala.bson.{BsonArray, BsonDocument, BsonString, BsonValue}
+import org.apache.commons.io.FilenameUtils
+import org.bson.conversions.Bson
+import org.mongodb.scala.bson.conversions.Bson
 
+import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.xml.InputSource
@@ -120,23 +123,17 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       }
     }
 
-//    val allFiles: List[String] = (document.get("derivatives").getOrElse(BsonArray()).asArray().getValues.asScala.flatMap({
-//      case d: BsonString ⇒ Some(d.getValue)
-//      case _ ⇒ None
-//    }).toList ::: newFiles.toList).distinct
+    // refactor - code works but needs refactoring into better code - not batching calls
+    val length = newFiles.length - 1
 
-    var derivatives = combine()
-    for (f <- newFiles.toList) {
-      derivatives = combine(derivatives, addToSet("derivatives", f))
+    for  (i <- 0 to length) {
+      val update = addToSet("derivatives", newFiles(i))
+      collection.updateOne(equal("_id", document("_id")), update).toFutureOption()
     }
 
-    val update =  combine(
-      derivatives,
-      set(config.getString("upstream.queue"), true)
-    )
-
-    collection.updateOne(equal("_id", document("_id")),update).toFutureOption()
-
+    // refactor - cheat to get return type
+    var updates = combine()
+    collection.updateOne(equal("_id", document("_id")), updates).toFutureOption()
   }
 
   def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
