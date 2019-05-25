@@ -204,6 +204,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       }
       contentBuilder.append("\n")
     }
+    csvParser.close()
     (file.getName, contentBuilder.toString)
   }
 
@@ -288,6 +289,9 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         }
         result(sheetName) = contentBuilder.toString
       }
+      workbook.close()
+
+
       result.toMap
     }
   }
