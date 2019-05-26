@@ -326,10 +326,10 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
               if (cellValue.contains("\n") || cellValue.contains("\t")) {
                 val quotedCellValue = "\"" + cellValue + "\""
-                System.out.print(quotedCellValue + "\t")
+                // System.out.print(quotedCellValue + "\t")
                 contentBuilder.append(quotedCellValue + "\t")
               } else {
-                System.out.print(cellValue + "\t")
+                // System.out.print(cellValue + "\t")
                 contentBuilder.append(cellValue + "\t")
               }
               sourceCellColumn += 1
