@@ -301,7 +301,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
             if (rowNumber > lastRow + 1) {
               // required to generate internal blank line
-              System.out.println()
+              //System.out.println()
 
               for (_ ← 1 to rowNumber - (lastRow + 1)) {
                 contentBuilder.append("\n")
@@ -335,7 +335,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
               sourceCellColumn += 1
             }
 
-            System.out.println()
+//            System.out.println()
             contentBuilder.append("\n")
             lastRow = rowNumber
           }
