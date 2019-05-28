@@ -117,8 +117,8 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
         createOutputDirectory(fullOutputDirectory)
         if (sheetItem._2 != "") {
-          count += 1
-          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
+
+          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, (count += 1).toString, outputFilename).toString
           newFiles += newFile
 
           enqueue(new PrefetchMsg(newFile,
@@ -232,7 +232,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       csvParser = Some(CSVParser.parse(file.get, Charset.defaultCharset(), CSVFormat.DEFAULT))
       contentBuilder = Some(new StringBuilder())
 
-      val rowIterator = csvParser.iterator
+      val rowIterator = csvParser.get.iterator
 
       while (rowIterator.hasNext) {
         val row = rowIterator.next()
