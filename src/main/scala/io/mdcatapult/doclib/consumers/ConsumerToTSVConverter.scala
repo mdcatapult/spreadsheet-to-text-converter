@@ -108,7 +108,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
 
       val newFiles = mutable.ListBuffer[String]()
-      var count = 1
+      var count = 0
       for (sheetItem ← sheetMap) {
         val pmcNumber: String = getPMCNumber(inputFilepath)
         val (outputDirectoryPart2: String, outputFilename: String) = getOutputFilepathParts(inputFilepath, sheetItem._1)
@@ -117,8 +117,8 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
         createOutputDirectory(fullOutputDirectory)
         if (sheetItem._2 != "") {
-          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
           count += 1
+          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
           newFiles += newFile
 
           enqueue(new PrefetchMsg(newFile,
