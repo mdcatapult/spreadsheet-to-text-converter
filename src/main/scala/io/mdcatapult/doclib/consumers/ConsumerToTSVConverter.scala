@@ -42,6 +42,10 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.xml.InputSource
+import java.nio.file._
+import java.nio.file.attribute._
+import java.util.Set
+
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -113,16 +117,17 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val outputDirectory = s"$outputBaseDirectory/$pmcNumber"
 
         val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
-        createOutputDirectory(fullOutputDirectory)
-        if (sheetItem._2 != "") {
-          count += 1
-          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
-          newFiles += newFile
+        if(createOutputDirectory(fullOutputDirectory)) {
+          if (sheetItem._2 != "") {
+            count += 1
+            val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
+            newFiles += newFile
 
-          enqueue(new PrefetchMsg(newFile,
-            id,
-            document("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
-          ))
+            enqueue(new PrefetchMsg(newFile,
+              id,
+              document("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
+            ))
+          }
         }
       }
 
@@ -158,6 +163,8 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
     val filename = Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv")
     val outputFile = new File(filename.toString)
+
+
     val bw = new BufferedWriter(new FileWriter(outputFile))
     bw.write(content)
     bw.close()
@@ -202,7 +209,14 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     require(outputDirectory != "")
 
     val outputDirectoryFile = new File(outputDirectory)
-    outputDirectoryFile.mkdirs()
+
+    val outputDirectoryPath = Paths.get(outputDirectory)
+
+    val permissions = PosixFilePermissions.fromString("rwxrwxrwx");
+    val fileAttributes = PosixFilePermissions.asFileAttribute(permissions);
+    Files.createDirectories(outputDirectoryPath, fileAttributes);
+
+    Files.exists(outputDirectoryPath)
   }
 
   def getOutputFilepathParts(inputFilepath: String, sheetName: String): (String, String) = {
