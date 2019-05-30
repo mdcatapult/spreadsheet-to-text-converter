@@ -105,8 +105,6 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
     try {
       val sheetMap = parseDocument(inputFilepath)
-
-
       val newFiles = mutable.ListBuffer[String]()
       var count = 0
       for (sheetItem ← sheetMap) {
@@ -117,8 +115,8 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
         createOutputDirectory(fullOutputDirectory)
         if (sheetItem._2 != "") {
-
-          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, (count += 1).toString, outputFilename).toString
+          count += 1
+          val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
           newFiles += newFile
 
           enqueue(new PrefetchMsg(newFile,
@@ -131,13 +129,17 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       // refactor - code works but needs refactoring into better code - not batching calls
       val length = newFiles.length - 1
 
-
-
-      for (i <- 0 to length) {
-        val update = addToSet("derivatives", newFiles(i))
+      if (length <= 0) {
+        val update = addToSet("derivatives", "")
         updateResult = collection.updateOne(equal("_id", document("_id")), update).toFutureOption()
+        return updateResult
+      } else {
+        for (i <- 0 to length) {
+          val update = addToSet("derivatives", newFiles(i))
+          updateResult = collection.updateOne(equal("_id", document("_id")), update).toFutureOption()
+        }
+        updateResult
       }
-      updateResult
 
     } catch {
       case e: Exception => println("Exception: feedParser() id:" + id + " document:" + document)
