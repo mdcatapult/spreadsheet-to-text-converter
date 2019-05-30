@@ -134,7 +134,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       // refactor - code works but needs refactoring into better code - not batching calls
       val length = newFiles.length - 1
 
-      if (length <= 0) {
+      if (length < 0) {
         val update = addToSet("derivatives", "")
         updateResult = collection.updateOne(equal("_id", document("_id")), update).toFutureOption()
         return updateResult
