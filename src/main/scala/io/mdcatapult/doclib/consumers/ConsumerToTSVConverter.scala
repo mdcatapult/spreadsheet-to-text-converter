@@ -279,18 +279,19 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   def parseByStreaming(filepath: String): Map[String, String] = {
     val xlsxFile = new File(filepath);
     val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
-    val contentBuilder = new StringBuilder
 
       val inp = new FileInputStream(filepath);
       val wb = WorkbookFactory.create(inp);
       val sheetCount = wb.getNumberOfSheets
       val sheetIterator = wb.sheetIterator()
+      var sheetContent: String = ""
 
       System.out.println("Retrieving Sheets using Iterator")
       while ({sheetIterator.hasNext}) {
         val sheetName = sheetIterator.next().getSheetName
         val sheet = wb.getSheet(sheetName);
         if (sheet != null) {
+          val contentBuilder = new StringBuilder
 
           val rowIterator = sheet.rowIterator()
 
@@ -341,13 +342,15 @@ object ConsumerToTSVConverter extends App with LazyLogging {
             }
             contentBuilder.append("\n")
           }
+          sheetContent = contentBuilder.toString()
+          if(sheetContent.length > 0) {
+            result(sheetName) = sheetContent
+          }
         } else {
           // continue
         }
 
-        val sheetContent = contentBuilder.toString()
 //        System.out.println(sheetContent)
-        result(sheetName) = sheetContent
       }
 //      } else {
         // continue
