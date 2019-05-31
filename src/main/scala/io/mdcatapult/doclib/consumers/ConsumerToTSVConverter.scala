@@ -15,7 +15,7 @@ import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.{Exchange, Queue}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
-import org.apache.poi.ss.usermodel.{DataFormatter, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{CellType, DataFormatter, Workbook, WorkbookFactory}
 import org.apache.tika.Tika
 import org.apache.tika.io.TikaInputStream
 import org.apache.tika.metadata.Metadata
@@ -46,6 +46,9 @@ import java.nio.file._
 import java.nio.file.attribute._
 import java.util.Set
 
+import org.apache.poi.xssf.streaming
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
+import org.apache.poi.ss.usermodel
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -68,7 +71,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   val collection: MongoCollection[Document] = new Mongo().getCollection()
   val outputBaseDirectory = config.getString("output.baseDirectory")
   val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
-  var updateResult : Future[Option[UpdateResult]] = _
+  var updateResult: Future[Option[UpdateResult]] = _
 
 
   def handle(msg: DoclibMsg, key: String): Future[Option[org.mongodb.scala.Document]] =
@@ -100,7 +103,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     }
 
   def enqueue(prefetchMsg: PrefetchMsg): Unit = {
-      downstream.send(prefetchMsg)
+    downstream.send(prefetchMsg)
   }
 
   def feedParser(id: String, document: Document): Future[Option[UpdateResult]] = {
@@ -117,7 +120,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         val outputDirectory = s"$outputBaseDirectory/$pmcNumber"
 
         val fullOutputDirectory = outputDirectory + "/" + outputDirectoryPart2
-        if(createOutputDirectory(fullOutputDirectory)) {
+        if (createOutputDirectory(fullOutputDirectory)) {
           if (sheetItem._2 != "") {
             count += 1
             val newFile = writeTSV(sheetItem._2, fullOutputDirectory, count.toString, outputFilename).toString
@@ -173,37 +176,37 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   }
 
 
-//  def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
-//    require(content != "")
-//    require(outputFilename != "")
-//    require(outputDirectory != "")
-//
-//    var fw = None : Option[FileWriter]
-//    var bw = None : Option[BufferedWriter]
-//    var filename = None : Option[Path]
-//
-//    try {
-//
-//      filename = Some(Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv"))
-//      val outputFile = (new File(filename.get.toString))
-//
-//      fw = Some(new FileWriter(outputFile))
-//      bw = Some(new BufferedWriter(fw.get))
-//
-//      bw.get.write(content)
-//
-//    } catch {
-//      case e : Exception => {
-//        println("Exception: writeTSV() content.length: " + content.length + " outputDirectory: " + outputDirectory + " filenamePrefix: " + filenamePrefix + " outputFilename: " + outputFilename + " " + e.toString)
-//        throw e
-//      }
-//    } finally {
-//      if (fw.isDefined) fw.get.close
-//      if (bw.isDefined) bw.get.close
-//    }
-//
-//    filename.get
-//  }
+  //  def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
+  //    require(content != "")
+  //    require(outputFilename != "")
+  //    require(outputDirectory != "")
+  //
+  //    var fw = None : Option[FileWriter]
+  //    var bw = None : Option[BufferedWriter]
+  //    var filename = None : Option[Path]
+  //
+  //    try {
+  //
+  //      filename = Some(Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv"))
+  //      val outputFile = (new File(filename.get.toString))
+  //
+  //      fw = Some(new FileWriter(outputFile))
+  //      bw = Some(new BufferedWriter(fw.get))
+  //
+  //      bw.get.write(content)
+  //
+  //    } catch {
+  //      case e : Exception => {
+  //        println("Exception: writeTSV() content.length: " + content.length + " outputDirectory: " + outputDirectory + " filenamePrefix: " + filenamePrefix + " outputFilename: " + outputFilename + " " + e.toString)
+  //        throw e
+  //      }
+  //    } finally {
+  //      if (fw.isDefined) fw.get.close
+  //      if (bw.isDefined) bw.get.close
+  //    }
+  //
+  //    filename.get
+  //  }
 
   def createOutputDirectory(outputDirectory: String): Boolean = {
     require(outputDirectory != "")
@@ -211,7 +214,6 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     val outputDirectoryFile = new File(outputDirectory)
 
     val outputDirectoryPath = Paths.get(outputDirectory)
-
     val permissions = PosixFilePermissions.fromString("rwxrwxrwx");
     val fileAttributes = PosixFilePermissions.asFileAttribute(permissions);
     Files.createDirectories(outputDirectoryPath, fileAttributes);
@@ -274,112 +276,195 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     (file.get.getName, contentBuilder.toString)
   }
 
+  def parseByStreaming(filepath: String): Map[String, String] = {
+    val xlsxFile = new File(filepath);
+    val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
+    val contentBuilder = new StringBuilder
+
+      val inp = new FileInputStream(filepath);
+      val wb = WorkbookFactory.create(inp);
+      val sheetCount = wb.getNumberOfSheets
+      val sheetIterator = wb.sheetIterator()
+
+      System.out.println("Retrieving Sheets using Iterator")
+      while ({sheetIterator.hasNext}) {
+        val sheetName = sheetIterator.next().getSheetName
+        val sheet = wb.getSheet(sheetName);
+        if (sheet != null) {
+
+          val rowIterator = sheet.rowIterator()
+
+          while({rowIterator.hasNext}) {
+            val row = rowIterator.next()
+
+            val cellIterator = row.cellIterator
+
+            while({cellIterator.hasNext}) {
+              val cell = cellIterator.next()
+
+              val cellType = cell.getCellType
+              System.out.println(cellType)
+
+              cellType match {
+                case CellType.NUMERIC => {
+                  val cellValue = cell.getNumericCellValue
+//                  System.out.println(cellValue)
+                  contentBuilder.append(cellValue + "\t")
+                }
+                case CellType.BLANK => {
+                  contentBuilder.append("\t")
+                }
+                case CellType.BOOLEAN => {
+                  val cellValue = cell.getBooleanCellValue
+//                  System.out.println(cellValue)
+                  contentBuilder.append(cellValue + "\t")
+                }
+                case CellType.FORMULA => {
+                  val cellValue = cell.getCellFormula
+//                  System.out.println(cellValue)
+                  contentBuilder.append(cellValue + "\t")
+                }
+                case CellType.STRING => {
+                  val cellValue = cell.getStringCellValue
+//                  System.out.println(cellValue)
+                  contentBuilder.append(cellValue + "\t")
+                }
+                case CellType.ERROR => {
+                  val cellValue = cell.getErrorCellValue
+//                  System.out.println(cellValue)
+                  contentBuilder.append(cellValue + "\t")
+                }
+                case CellType._NONE => {
+                  contentBuilder.append("\t")
+                }
+              }
+            }
+            contentBuilder.append("\n")
+          }
+        } else {
+          // continue
+        }
+
+        val sheetContent = contentBuilder.toString()
+//        System.out.println(sheetContent)
+        result(sheetName) = sheetContent
+      }
+//      } else {
+        // continue
+//      }
+
+    result.toMap
+  }
+
   def parseDocument(filepath: String): Map[String, String]  = {
     val file = new File(filepath)
     if (file.getName.contains(".csv")) {
       List(parseCSV(filepath)).toMap
     } else {
+      return parseByStreaming(filepath)
+    }
+  }
 
-      val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
+  def parseByLoadUpfront(file: File): Map[String, String] = {
+    val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
 
-      // Creating a Workbook from an Excel file (.xls or .xlsx)
-      var workbook = None: Option[org.apache.poi.ss.usermodel.Workbook]
-      try {
-        workbook = Some(WorkbookFactory.create(file))
+    // Creating a Workbook from an Excel file (.xls or .xlsx)
+    var workbook = None: Option[org.apache.poi.ss.usermodel.Workbook]
+    try {
+      workbook = Some(WorkbookFactory.create(file))
 
-        // Retrieving the number of sheets in the Workbook
-        System.out.println("Workbook has " + workbook.get.getNumberOfSheets + " Sheets : ")
+      // Retrieving the number of sheets in the Workbook
+      System.out.println("Workbook has " + workbook.get.getNumberOfSheets + " Sheets : ")
 
-        val sheetIterator = workbook.get.sheetIterator
-        System.out.println("Retrieving Sheets using Iterator")
-        while ( {
-          sheetIterator.hasNext
-        }) {
-          val sheet = sheetIterator.next
-          val sheetName = sheet.getSheetName
-          System.out.println("=> " + sheetName)
+      val sheetIterator = workbook.get.sheetIterator
+      System.out.println("Retrieving Sheets using Iterator")
+      while ( {
+        sheetIterator.hasNext
+      }) {
+        val sheet = sheetIterator.next
+        val sheetName = sheet.getSheetName
+        System.out.println("=> " + sheetName)
 
-          val dataFormatter = new DataFormatter()
+        val dataFormatter = new DataFormatter()
 
-          System.out.println("\n\nIterating over Rows and Columns using Iterator\n")
-          val rowIterator = sheet.rowIterator()
+        System.out.println("\n\nIterating over Rows and Columns using Iterator\n")
+        val rowIterator = sheet.rowIterator()
 
-          var lastRow = 0
+        var lastRow = 0
 
-          val contentBuilder = new StringBuilder()
+        val contentBuilder = new StringBuilder()
 
-          while (rowIterator.hasNext) {
+        while (rowIterator.hasNext) {
 
-            val row = rowIterator.next()
+          val row = rowIterator.next()
 
-            val cellIterator = row.cellIterator()
-            val rowNumber = row.getRowNum //getRowNumber(row, "application/vnd.ms-excel")
+          val cellIterator = row.cellIterator()
+          val rowNumber = row.getRowNum //getRowNumber(row, "application/vnd.ms-excel")
 
-            if (rowNumber > lastRow + 1) {
-              // required to generate internal blank line
-              //System.out.println()
+          if (rowNumber > lastRow + 1) {
+            // required to generate internal blank line
+            //System.out.println()
 
-              for (_ ← 1 to rowNumber - (lastRow + 1)) {
-                contentBuilder.append("\n")
-              }
+            for (_ ← 1 to rowNumber - (lastRow + 1)) {
+              contentBuilder.append("\n")
             }
+          }
 
-            var sourceCellColumn = 0
+          var sourceCellColumn = 0
 
-            while (cellIterator.hasNext) {
+          while (cellIterator.hasNext) {
 
-              val cell = cellIterator.next
+            val cell = cellIterator.next
 
-              // validates cell value is put in the correct column else add tab until it matches
-              // map cell value to reference on first line
-              val targetCellColumn = cell.getColumnIndex
-              while (targetCellColumn > sourceCellColumn) {
-                contentBuilder.append("\t")
-                sourceCellColumn += 1
-              }
-
-              val cellValue = dataFormatter.formatCellValue(cell)
-
-              if (cellValue.contains("\n") || cellValue.contains("\t")) {
-                val quotedCellValue = "\"" + cellValue + "\""
-                // System.out.print(quotedCellValue + "\t")
-                contentBuilder.append(quotedCellValue + "\t")
-              } else {
-                // System.out.print(cellValue + "\t")
-                contentBuilder.append(cellValue + "\t")
-              }
+            // validates cell value is put in the correct column else add tab until it matches
+            // map cell value to reference on first line
+            val targetCellColumn = cell.getColumnIndex
+            while (targetCellColumn > sourceCellColumn) {
+              contentBuilder.append("\t")
               sourceCellColumn += 1
             }
 
-//            System.out.println()
-            contentBuilder.append("\n")
-            lastRow = rowNumber
+            val cellValue = dataFormatter.formatCellValue(cell)
+
+            if (cellValue.contains("\n") || cellValue.contains("\t")) {
+              val quotedCellValue = "\"" + cellValue + "\""
+              // System.out.print(quotedCellValue + "\t")
+              contentBuilder.append(quotedCellValue + "\t")
+            } else {
+              // System.out.print(cellValue + "\t")
+              contentBuilder.append(cellValue + "\t")
+            }
+            sourceCellColumn += 1
           }
-          result(sheetName) = contentBuilder.toString
-        }
-        workbook.get.close
 
-      } catch {
-        case ioe: IOException => {
-          println("IO Exception: parseDocument() filepath: " + filepath + " " + ioe)
-          throw ioe
+          //            System.out.println()
+          contentBuilder.append("\n")
+          lastRow = rowNumber
         }
-        case ede: EncryptedDocumentException => {
-          println("Encrypted Document Exception: parseDocument() filepath:" + filepath + " " + ede)
-          throw ede
-        }
+        result(sheetName) = contentBuilder.toString
+      }
+      workbook.get.close
 
-        case e: Exception => {
-          println("Exception: filepath: " + filepath + " " + e)
-          throw e;
-        }
-
-      } finally {
-        if (workbook.isDefined) workbook.get.close
+    } catch {
+      case ioe: IOException => {
+        println("IO Exception: parseDocument() filepath: " + file.getPath + " " + ioe)
+        throw ioe
+      }
+      case ede: EncryptedDocumentException => {
+        println("Encrypted Document Exception: parseDocument() filepath:" + file.getPath + " " + ede)
+        throw ede
       }
 
-      result.toMap
+      case e: Exception => {
+        println("Exception: filepath: " + file.getPath + " " + e)
+        throw e;
+      }
+
+    } finally {
+      if (workbook.isDefined) workbook.get.close
     }
+
+    result.toMap
   }
 
   def getNextSheet(tika: Tika, input: BufferedInputStream): immutable.Seq[BufferedInputStream] = {
