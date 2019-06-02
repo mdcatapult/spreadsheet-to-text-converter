@@ -1,35 +1,54 @@
 package io.mdcatapult.doclib.consumers
 
 import java.io._
-import java.nio.charset.Charset
-import java.nio.file.attribute._
-import java.nio.file.{Path, Paths, _}
+import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.file.{Path, Paths}
+import java.util.stream.Collectors
 
+import scala.collection.JavaConverters._
 import akka.actor.ActorSystem
 import cats.data.OptionT
-import cats.implicits._
 import com.spingo.op_rabbit.SubscriptionRef
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.klein.mongo.Mongo
-import io.mdcatapult.klein.queue.Queue
+import io.mdcatapult.klein.queue.{Exchange, Queue}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
-import org.apache.commons.io.FilenameUtils
-import org.apache.poi.ss.usermodel.{CellType, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{CellType, DataFormatter, Workbook, WorkbookFactory}
+import org.apache.tika.Tika
+import org.apache.tika.io.TikaInputStream
+import org.apache.tika.metadata.Metadata
+import org.apache.tika.parser.ParseContext
+import org.apache.tika.sax.BodyContentHandler
 import org.bson.codecs.configuration.CodecRegistries.fromRegistries
 import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
 import org.bson.codecs.jsr310.LocalDateTimeCodec
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{addToSet, combine, set}
+import org.mongodb.scala.model.Updates.{addEachToSet, addToSet, combine, set}
 import org.mongodb.scala.result.UpdateResult
-import org.mongodb.scala.{Document, MongoCollection, result}
+import org.mongodb.scala.{Document, MongoCollection, SingleObservable, result}
+import cats.implicits._
+import cats.data._
+import org.mongodb.scala.bson.{BsonArray, BsonDocument, BsonString, BsonValue}
+import org.apache.commons.io.FilenameUtils
+import org.apache.poi.EncryptedDocumentException
+import org.bson.conversions.Bson
+import org.mongodb.scala.bson.conversions.Bson
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.xml.InputSource
+import java.nio.file._
+import java.nio.file.attribute._
+import java.util.Set
+
+import org.apache.poi.xssf.streaming
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
+import org.apache.poi.ss.usermodel
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -155,6 +174,39 @@ object ConsumerToTSVConverter extends App with LazyLogging {
 
     filename
   }
+
+
+  //  def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
+  //    require(content != "")
+  //    require(outputFilename != "")
+  //    require(outputDirectory != "")
+  //
+  //    var fw = None : Option[FileWriter]
+  //    var bw = None : Option[BufferedWriter]
+  //    var filename = None : Option[Path]
+  //
+  //    try {
+  //
+  //      filename = Some(Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv"))
+  //      val outputFile = (new File(filename.get.toString))
+  //
+  //      fw = Some(new FileWriter(outputFile))
+  //      bw = Some(new BufferedWriter(fw.get))
+  //
+  //      bw.get.write(content)
+  //
+  //    } catch {
+  //      case e : Exception => {
+  //        println("Exception: writeTSV() content.length: " + content.length + " outputDirectory: " + outputDirectory + " filenamePrefix: " + filenamePrefix + " outputFilename: " + outputFilename + " " + e.toString)
+  //        throw e
+  //      }
+  //    } finally {
+  //      if (fw.isDefined) fw.get.close
+  //      if (bw.isDefined) bw.get.close
+  //    }
+  //
+  //    filename.get
+  //  }
 
   def createOutputDirectory(outputDirectory: String): Boolean = {
     require(outputDirectory != "")
