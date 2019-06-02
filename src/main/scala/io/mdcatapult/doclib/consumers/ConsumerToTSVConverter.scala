@@ -342,7 +342,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
                 contentBuilder.append(cellValue + "\t")
               }
               case CellType._NONE => {
-                contentBuilder.append("\t")
+                contentBuilder.append(cell.getStringCellValue + "\t")
               }
             }
           }
