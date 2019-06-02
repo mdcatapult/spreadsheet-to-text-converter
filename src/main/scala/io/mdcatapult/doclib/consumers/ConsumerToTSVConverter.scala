@@ -1,54 +1,35 @@
 package io.mdcatapult.doclib.consumers
 
 import java.io._
-import java.nio.charset.{Charset, StandardCharsets}
-import java.nio.file.{Path, Paths}
-import java.util.stream.Collectors
+import java.nio.charset.Charset
+import java.nio.file.attribute._
+import java.nio.file.{Path, Paths, _}
 
-import scala.collection.JavaConverters._
 import akka.actor.ActorSystem
 import cats.data.OptionT
+import cats.implicits._
 import com.spingo.op_rabbit.SubscriptionRef
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.klein.mongo.Mongo
-import io.mdcatapult.klein.queue.{Exchange, Queue}
+import io.mdcatapult.klein.queue.Queue
 import org.apache.commons.csv.{CSVFormat, CSVParser}
-import org.apache.poi.ss.usermodel.{CellType, DataFormatter, Workbook, WorkbookFactory}
-import org.apache.tika.Tika
-import org.apache.tika.io.TikaInputStream
-import org.apache.tika.metadata.Metadata
-import org.apache.tika.parser.ParseContext
-import org.apache.tika.sax.BodyContentHandler
+import org.apache.commons.io.FilenameUtils
+import org.apache.poi.ss.usermodel.{CellType, WorkbookFactory}
 import org.bson.codecs.configuration.CodecRegistries.fromRegistries
 import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
 import org.bson.codecs.jsr310.LocalDateTimeCodec
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{addEachToSet, addToSet, combine, set}
+import org.mongodb.scala.model.Updates.{addToSet, combine, set}
 import org.mongodb.scala.result.UpdateResult
-import org.mongodb.scala.{Document, MongoCollection, SingleObservable, result}
-import cats.implicits._
-import cats.data._
-import org.mongodb.scala.bson.{BsonArray, BsonDocument, BsonString, BsonValue}
-import org.apache.commons.io.FilenameUtils
-import org.apache.poi.EncryptedDocumentException
-import org.bson.conversions.Bson
-import org.mongodb.scala.bson.conversions.Bson
+import org.mongodb.scala.{Document, MongoCollection, result}
 
-import scala.collection.mutable.ListBuffer
-import scala.collection.{immutable, mutable}
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.xml.InputSource
-import java.nio.file._
-import java.nio.file.attribute._
-import java.util.Set
-
-import org.apache.poi.xssf.streaming
-import org.apache.poi.xssf.streaming.SXSSFWorkbook
-import org.apache.poi.ss.usermodel
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -175,39 +156,6 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     filename
   }
 
-
-  //  def writeTSV(content: String, outputDirectory: String, filenamePrefix: String, outputFilename: String): Path = {
-  //    require(content != "")
-  //    require(outputFilename != "")
-  //    require(outputDirectory != "")
-  //
-  //    var fw = None : Option[FileWriter]
-  //    var bw = None : Option[BufferedWriter]
-  //    var filename = None : Option[Path]
-  //
-  //    try {
-  //
-  //      filename = Some(Paths.get(outputDirectory, filenamePrefix + "_" + outputFilename + ".tsv"))
-  //      val outputFile = (new File(filename.get.toString))
-  //
-  //      fw = Some(new FileWriter(outputFile))
-  //      bw = Some(new BufferedWriter(fw.get))
-  //
-  //      bw.get.write(content)
-  //
-  //    } catch {
-  //      case e : Exception => {
-  //        println("Exception: writeTSV() content.length: " + content.length + " outputDirectory: " + outputDirectory + " filenamePrefix: " + filenamePrefix + " outputFilename: " + outputFilename + " " + e.toString)
-  //        throw e
-  //      }
-  //    } finally {
-  //      if (fw.isDefined) fw.get.close
-  //      if (bw.isDefined) bw.get.close
-  //    }
-  //
-  //    filename.get
-  //  }
-
   def createOutputDirectory(outputDirectory: String): Boolean = {
     require(outputDirectory != "")
 
@@ -280,82 +228,80 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     val xlsxFile = new File(filepath);
     val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
 
-      val inp = new FileInputStream(filepath);
-      val wb = WorkbookFactory.create(inp);
-      val sheetCount = wb.getNumberOfSheets
-      val sheetIterator = wb.sheetIterator()
-      var sheetContent: String = ""
+    val inp = new FileInputStream(filepath);
+    val wb = WorkbookFactory.create(inp);
+    val sheetCount = wb.getNumberOfSheets
+    val sheetIterator = wb.sheetIterator()
+    var sheetContent: String = ""
 
-      System.out.println("Retrieving Sheets using Iterator")
-      while ({sheetIterator.hasNext}) {
-        val sheetName = sheetIterator.next().getSheetName
-        val sheet = wb.getSheet(sheetName);
-        if (sheet != null) {
-          val contentBuilder = new StringBuilder
+    System.out.println("Retrieving Sheets using Iterator")
+    while ( {
+      sheetIterator.hasNext
+    }) {
+      val sheetName = sheetIterator.next().getSheetName
+      val sheet = wb.getSheet(sheetName);
+      if (sheet != null) {
+        val contentBuilder = new StringBuilder
 
-          val rowIterator = sheet.rowIterator()
+        val rowIterator = sheet.rowIterator()
 
-          while({rowIterator.hasNext}) {
-            val row = rowIterator.next()
+        while ( {
+          rowIterator.hasNext
+        }) {
+          val row = rowIterator.next()
 
-            val cellIterator = row.cellIterator
+          val cellIterator = row.cellIterator
 
-            while({cellIterator.hasNext}) {
-              val cell = cellIterator.next()
+          while ( {
+            cellIterator.hasNext
+          }) {
+            val cell = cellIterator.next()
 
-              val cellType = cell.getCellType
-              System.out.println(cellType)
+            val cellType = cell.getCellType
+            //              System.out.println(cellType)
 
-              cellType match {
-                case CellType.NUMERIC => {
-                  val cellValue = cell.getNumericCellValue
-//                  System.out.println(cellValue)
-                  contentBuilder.append(cellValue + "\t")
-                }
-                case CellType.BLANK => {
-                  contentBuilder.append("\t")
-                }
-                case CellType.BOOLEAN => {
-                  val cellValue = cell.getBooleanCellValue
-//                  System.out.println(cellValue)
-                  contentBuilder.append(cellValue + "\t")
-                }
-                case CellType.FORMULA => {
-                  val cellValue = cell.getCellFormula
-//                  System.out.println(cellValue)
-                  contentBuilder.append(cellValue + "\t")
-                }
-                case CellType.STRING => {
-                  val cellValue = cell.getStringCellValue
-//                  System.out.println(cellValue)
-                  contentBuilder.append(cellValue + "\t")
-                }
-                case CellType.ERROR => {
-                  val cellValue = cell.getErrorCellValue
-//                  System.out.println(cellValue)
-                  contentBuilder.append(cellValue + "\t")
-                }
-                case CellType._NONE => {
-                  contentBuilder.append("\t")
-                }
+            cellType match {
+              case CellType.NUMERIC => {
+                val cellValue = cell.getNumericCellValue
+                //                  System.out.println(cellValue)
+                contentBuilder.append(cellValue + "\t")
+              }
+              case CellType.BLANK => {
+                contentBuilder.append("\t")
+              }
+              case CellType.BOOLEAN => {
+                val cellValue = cell.getBooleanCellValue
+                //                  System.out.println(cellValue)
+                contentBuilder.append(cellValue + "\t")
+              }
+              case CellType.FORMULA => {
+                val cellValue = cell.getCellFormula
+                //                  System.out.println(cellValue)
+                contentBuilder.append(cellValue + "\t")
+              }
+              case CellType.STRING => {
+                val cellValue = cell.getStringCellValue
+                //                  System.out.println(cellValue)
+                contentBuilder.append(cellValue + "\t")
+              }
+              case CellType.ERROR => {
+                val cellValue = cell.getErrorCellValue
+                //                  System.out.println(cellValue)
+                contentBuilder.append(cellValue + "\t")
+              }
+              case CellType._NONE => {
+                contentBuilder.append("\t")
               }
             }
-            contentBuilder.append("\n")
           }
-          sheetContent = contentBuilder.toString()
-          if(sheetContent.length > 0) {
-            result(sheetName) = sheetContent
-          }
-        } else {
-          // continue
+          contentBuilder.append("\n")
         }
-
-//        System.out.println(sheetContent)
+        sheetContent = contentBuilder.toString()
+        if (sheetContent.length > 0) {
+          result(sheetName) = sheetContent
+        }
       }
-//      } else {
-        // continue
-//      }
-
+    }
     result.toMap
   }
 
