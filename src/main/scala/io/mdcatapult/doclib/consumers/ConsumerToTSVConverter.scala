@@ -49,6 +49,7 @@ import java.util.Set
 import org.apache.poi.xssf.streaming
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.ss.usermodel
+import io.mdcatapult.doclib.extensions._
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -277,11 +278,14 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   }
 
   def parseByStreaming(filepath: String): Map[String, String] = {
-    val xlsxFile = new File(filepath);
+    val inputFile = new File(filepath);
     val result: mutable.Map[String, String] = mutable.Map.empty[String, String]
 
     val inp = new FileInputStream(filepath);
-    val wb = WorkbookFactory.create(inp);
+//    var wb = WorkbookFactory.create(xlsxFile)
+
+    val wb = MdcWorkbookFactory.create(inp, 100)
+
     val sheetCount = wb.getNumberOfSheets
     val sheetIterator = wb.sheetIterator()
     var sheetContent: String = ""
