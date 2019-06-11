@@ -65,7 +65,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   def enqueue(source: String, doc: Document): String = {
     downstream.send(PrefetchMsg(
       source,
-      doc.getObjectId("_id").toStparsering,
+      doc.getObjectId("_id").toString,
       doc("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
     ))
     source
