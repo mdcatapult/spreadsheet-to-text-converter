@@ -40,7 +40,7 @@ class Stream(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
             case CellType.FORMULA ⇒ cell.getCellFormula
             case CellType.STRING ⇒ cell.getStringCellValue
             case CellType.ERROR ⇒ cell.getErrorCellValue
-            case CellType._NONE ⇒ cell.getStringCellValue
+            case _ ⇒ cell.getStringCellValue
           }).mkString(fieldDelimiter)
         }).mkString(lineDelimiter.get)
       )
