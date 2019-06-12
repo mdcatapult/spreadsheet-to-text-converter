@@ -5,7 +5,7 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val apachePoiVersion = "4.0.1"
+lazy val apachePoiVersion = "4.1.0"
 
 val meta = """META.INF(.)*""".r
 

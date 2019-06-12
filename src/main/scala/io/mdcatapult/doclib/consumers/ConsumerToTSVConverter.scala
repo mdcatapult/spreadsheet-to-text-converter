@@ -25,7 +25,7 @@ import org.mongodb.scala.result._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object ConsumerToTSVConverter extends App with LazyLogging {
 
@@ -39,29 +39,58 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   val subscription: SubscriptionRef = upstream.subscribe(handle, config.getInt("upstream.concurrent"))
   val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
 
-
   val mongo = new Mongo()
   val collection = mongo.getCollection()
 
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] =
-    Try(for {
+  /**
+    * default handler for messages
+    * @param msg DoclibMsg
+    * @param exchange String name of exchaneg message was sourced from
+    * @return
+    */
+  def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] =
+    (for {
       doc ← OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
+      valid ← OptionT.pure[Future](validate(doc))
+      if valid
       _  ← OptionT(persist(msg.id, set(config.getString("doclib.flag"), false)))
-      paths ← OptionT.pure[Future](process(doc))
+      paths: List[String] ← OptionT.pure[Future](process(doc))
+      derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
       _ ← OptionT(persist(msg.id, combine(
             set(config.getString("doclib.flag"), true),
-            set("derivatives", paths))).andThen({
+            set("derivatives", derivatives))).andThen({
               case Success(_) ⇒ paths.foreach(path ⇒ enqueue(path, doc))
               case Failure(e) ⇒ throw e
               }))
-    } yield paths) match {
+    } yield paths).value.andThen({
+      case Success(p) ⇒ p match {
+        case Some(paths) ⇒
+          logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
+        case None ⇒ throw new Exception("Could not complete converstion of tabular data")
+      }
       case Failure(e) ⇒ throw e
-      case Success(r) ⇒
-        logger.info(f"COMPLETED: ${msg.id}")
-        r.value
-    }
+    })
 
 
+  def validate(doc: Document): Boolean =
+    List(
+      "application/vnd.lotus-1-2-3",
+      "application/vnd.ms-excel",
+      "application/vnd.ms-excel.sheet.macroenabled.12",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+      "application/vnd.stardivision.calc",
+      "application/vnd.sun.xml.calc",
+      "application/vnd.sun.xml.calc.template",
+      "text/csv"
+   ).contains(doc.get("mimetype").getOrElse("not-a-valid-mimetype"))
+
+  /**
+    * send new file to prefetch queue
+    * @param source String
+    * @param doc Document
+    * @return
+    */
   def enqueue(source: String, doc: Document): String = {
     downstream.send(PrefetchMsg(
       source,
@@ -72,33 +101,83 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   }
 
 
+  /**
+    * Persist to FS and return new sheet with new path and normalised filename
+    * @param sheet TabSheet
+    * @param targetPath String
+    * @return
+    */
   def saveToFS(sheet: TabSheet, targetPath: String): TabSheet = {
-    val target = new File(s"$targetPath/${sheet.index}_${sheet.name}.${config.getString("output.format")}")
+    val filename = sheet.name.replaceAll(" ", "_").replaceAll("[^0-9a-zA-Z_-]", "-")
+    val target = new File(s"$targetPath/${sheet.index}_$filename.${config.getString("output.format")}")
     target.getParentFile.mkdirs()
     val w = new BufferedWriter(new FileWriter(target))
     w.write(sheet.content)
     w.close()
-    sheet.copy(path=Some(targetPath))
+    sheet.copy(path=Some(target.getAbsolutePath))
+  }
+
+  /**
+    * determines common root paths for two path string
+    * @param paths List[String]
+    * @return String common path component
+    */
+  def commonPath(paths: List[String]): String = {
+    val SEP = "/"
+    val BOUNDARY_REGEX = s"(?=[$SEP])(?<=[^$SEP])|(?=[^$SEP])(?<=[$SEP])"
+    def common(a: List[String], b: List[String]): List[String] = (a, b) match {
+      case (aa :: as, bb :: bs) if aa equals bb => aa :: common(as, bs)
+      case _ => Nil
+    }
+    if (paths.length < 2) paths.headOption.getOrElse("")
+    else paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+  }
+
+  /**
+    * generate new file path maintaining file path from origin but allowing for intersection of common root paths
+    * @param source String
+    * @return String full path to new target
+    */
+  def getTargetPath(source: String): String = {
+    val targetRoot = config.getString("output.baseDirectory").replaceAll("/+$", "")
+    val sourceName = FilenameUtils.removeExtension(source)
+    val c = commonPath(List(targetRoot, sourceName))
+    val scrubbed = sourceName.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
+    s"$targetRoot/$scrubbed/"
   }
 
 
+  /**
+    * generated new converted strings and save to the FS
+    * @param doc Document
+    * @return List[String] list of new paths created
+    */
   def process(doc: Document): List[String] = {
-    val targetRoot = config.getString("output.baseDirectory").replaceAll("/+$", "")
-    val sourceName = FilenameUtils.removeExtension(FilenameUtils.getBaseName(doc.getString("source")))
-    val targetPath = s"$targetRoot/$sourceName/"
-
+    val targetPath = getTargetPath(doc.getString("source"))
     val d = new TabularDoc(Paths.get(doc.getString("source")))
-    val sheets: List[String] = d.to(config.getString("output.format"))
-      .filter(_.content.length == 0)
+    d.to(config.getString("output.format"))
+      .filter(_.content.length > 0)
       .map(s ⇒ saveToFS(s, targetPath))
       .filter(_.path.isDefined)
       .map(_.path.get)
-
-    (doc.get[BsonArray]("derivatives").getOrElse(BsonArray()).getValues.asScala.flatMap({
-      case d: BsonString ⇒ Some(d.getValue)
-      case _ ⇒ None
-    }).toList ::: sheets).distinct
   }
+
+
+  /**
+    * merge list of new paths into existing paths in document
+    * @param doc Document
+    * @param derivatives List[String]
+    * @return unique list of derivatives
+    */
+  def mergeDerivatives(doc: Document, derivatives: List[String]) =
+    if (config.getBoolean("doclib.overwriteDerivatives")) {
+      derivatives
+    } else {
+      (doc.get[BsonArray]("derivatives").getOrElse(BsonArray()).getValues.asScala.flatMap({
+        case d: BsonString ⇒ Some(d.getValue)
+        case _ ⇒ None
+      }).toList ::: derivatives).distinct
+    }
 
   def persist(id: String, update: Bson): Future[Option[UpdateResult]] =
     collection.updateOne(equal("_id", new ObjectId(id)), update).toFutureOption()

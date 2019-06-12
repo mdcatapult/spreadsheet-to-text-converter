@@ -9,7 +9,7 @@ import scala.collection.JavaConverters._
 
 /**
   * Parser for loading CSV file and reformatting with set delimiters
-  * @param file
+  * @param file File
   */
 class CSV(file: File) extends Parser {
 
@@ -19,6 +19,6 @@ class CSV(file: File) extends Parser {
       row.iterator().asScala.mkString(fieldDelimiter)
     }).mkString(lineDelimiter.get)
     p.close()
-    List(TabSheet(1, "1", result))
+    List(TabSheet(0, "sheet", result))
   }
 }
