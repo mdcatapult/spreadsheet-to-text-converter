@@ -36,6 +36,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](
     config.getString("upstream.queue"),
     Some(config.getString("upstream.topics")))
+  val highMemQ: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("totsv.highMemQueue"))
   val subscription: SubscriptionRef = upstream.subscribe(handle, config.getInt("upstream.concurrent"))
   val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
 
@@ -51,8 +52,9 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] =
     (for {
       doc ← OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
-      valid ← OptionT.pure[Future](validate(doc))
+      valid ← OptionT.pure[Future](validateMimetype(doc))
       if valid
+      _ ← OptionT.fromOption[Future](validateSize(doc, msg))
       _  ← OptionT(persist(msg.id, set(config.getString("doclib.flag"), false)))
       paths: List[String] ← OptionT.pure[Future](process(doc))
       derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
@@ -72,7 +74,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     })
 
 
-  def validate(doc: Document): Boolean =
+  def validateMimetype(doc: Document): Boolean =
     List(
       "application/vnd.lotus-1-2-3",
       "application/vnd.ms-excel",
@@ -84,6 +86,13 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       "application/vnd.sun.xml.calc.template",
       "text/csv"
    ).contains(doc.get("mimetype").getOrElse("not-a-valid-mimetype"))
+
+  def validateSize(doc: Document, msg: DoclibMsg): Option[Boolean] =
+    if (doc.contains("headers") &&
+        doc("headers").asDocument().getInt32("size", BsonInt32(0)).intValue() <= config.getInt("totsv.maxSize")){
+      highMemQ.send(msg)
+      Some(true)
+    } else None
 
   /**
     * send new file to prefetch queue
