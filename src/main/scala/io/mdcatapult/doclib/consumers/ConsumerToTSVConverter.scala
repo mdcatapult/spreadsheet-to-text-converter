@@ -92,7 +92,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
         doc("headers").asDocument().getInt32("size", BsonInt32(0)).intValue() <= config.getInt("totsv.maxSize")){
       highMemQ.send(msg)
       Some(true)
-    } else None
+    } else throw new Exception("Document exceeds allowed maximum size for processing")
 
   /**
     * send new file to prefetch queue
