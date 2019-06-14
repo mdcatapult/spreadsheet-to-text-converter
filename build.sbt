@@ -1,6 +1,6 @@
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.18"
-lazy val catsVersion = "1.5.0-RC1"
+lazy val catsVersion = "2.0.0-M1"
 lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
