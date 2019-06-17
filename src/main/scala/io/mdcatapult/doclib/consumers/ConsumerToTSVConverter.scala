@@ -52,8 +52,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] =
     (for {
       doc ← OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
-      valid ← OptionT.pure[Future](validateMimetype(doc))
-      if valid
+      _ ← OptionT.fromOption[Future](validateMimetype(doc))
       _ ← OptionT.fromOption[Future](validateSize(doc, msg))
       _  ← OptionT(persist(msg.id, set(config.getString("doclib.flag"), false)))
       paths: List[String] ← OptionT.pure[Future](process(doc))
@@ -74,8 +73,9 @@ object ConsumerToTSVConverter extends App with LazyLogging {
     })
 
 
-  def validateMimetype(doc: Document): Boolean =
-    List(
+  def validateMimetype(doc: Document): Option[Boolean] = {
+    println(f"${doc.getObjectId("_id").toString} - ${doc.getString("source")}")
+    if (List(
       "application/vnd.lotus-1-2-3",
       "application/vnd.ms-excel",
       "application/vnd.ms-excel.sheet.macroenabled.12",
@@ -85,7 +85,10 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       "application/vnd.sun.xml.calc",
       "application/vnd.sun.xml.calc.template",
       "text/csv"
-   ).contains(doc.get("mimetype").getOrElse("not-a-valid-mimetype"))
+    ).contains(doc.getString("mimetype"))) {
+      Some(true)
+    } else throw new Exception("Document mimetype is not recognised")
+  }
 
   def validateSize(doc: Document, msg: DoclibMsg): Option[Boolean] =
     if (doc.contains("headers") &&

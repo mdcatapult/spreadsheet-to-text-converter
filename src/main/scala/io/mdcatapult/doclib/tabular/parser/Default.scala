@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
   * @param file File
   * @param windowSize Option[Int] default window to use with streamed SXSSFWorkbook interface
   */
-class Stream(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
+class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
 
   /**
     * create workbook.
@@ -30,7 +30,6 @@ class Stream(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
       case Failure(e) ⇒ throw e
     }
   }
-
 
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n")): List[TabSheet] = {
     val wb = getWorkbook

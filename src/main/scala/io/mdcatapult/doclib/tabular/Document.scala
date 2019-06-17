@@ -11,7 +11,11 @@ import io.mdcatapult.doclib.tabular.parser._
   */
 class Document(path: Path) {
   val file = new File(path.toUri)
-  val parser: Parser = if (path.endsWith(".csv")) new CSV(file) else new Stream(file)
+  val parser: Parser = {
+    if (path.toString.toLowerCase.endsWith(".csv")) new CSV(file)
+    else if (path.toString.toLowerCase.endsWith(".xlsx")) new XLSX(file)
+    else new Default(file)
+  }
 
   def to(format: String): List[TabSheet] = format match {
     case "tsv" ⇒ parser.parse("\t", "\"")
