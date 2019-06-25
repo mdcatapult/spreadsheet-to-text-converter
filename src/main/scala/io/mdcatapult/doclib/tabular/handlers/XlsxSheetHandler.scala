@@ -1,0 +1,81 @@
+package io.mdcatapult.doclib.tabular.handlers
+
+import org.apache.poi.ss.util.{CellAddress, CellReference}
+import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler
+import org.apache.poi.xssf.usermodel.XSSFComment
+
+import scala.util.{Failure, Success, Try}
+
+class XlsxSheetHandler(output: StringBuilder,
+                       fieldDelimiter: String,
+                       stringDelimiter: String,
+                       minColumns: Option[Int] = Some(0),
+                       lineDelimiter:Option[String] = Some("\n")
+                  ) extends SheetContentsHandler {
+
+  private var isFirst: Boolean = false
+  private var currentRow: Int = -1
+  private var currentCol: Int = -1
+
+
+  def startRow(rowNum: Int): Unit = {
+    outputMissingRows(rowNum - currentRow - 1)
+    isFirst = true
+    currentRow = rowNum
+    currentCol = -1
+  }
+
+  private def outputMissingRows(number: Int): Unit =
+    for (_ ← 0 until number) {
+      for (_ ← 0 until minColumns.get) {
+        output.append(fieldDelimiter)
+      }
+      output.append(lineDelimiter.get)
+    }
+
+  def endRow(rowNum: Int): Unit = {
+    for (_ ← currentCol to minColumns.get) {
+      output.append(fieldDelimiter)
+    }
+    output.append(lineDelimiter.get)
+  }
+
+
+    def cell(cellReference: String, formattedValue: String, comment: XSSFComment): Unit = {
+      if (isFirst) isFirst = false
+      else output.append(fieldDelimiter)
+      val thisCol = new CellReference(
+        if (cellReference == null)
+          new CellAddress(currentRow, currentCol).formatAsString
+        else
+          cellReference
+      ).getCol
+      val missedCols = thisCol - currentCol - 1
+      for (_ ← 1 until missedCols) {
+        output.append(fieldDelimiter)
+      }
+      currentCol = thisCol
+      val isInteger = """([0-9]+)""".r
+      val isDouble = """([0-9]+.[0-9]*)""".r
+
+      Try(formattedValue match {
+        case isInteger(_) ⇒  output.append(formattedValue.toInt)
+        case isDouble(_) ⇒ output.append(formattedValue.toDouble)
+        case _ ⇒
+          output.append(stringDelimiter)
+          output.append(formattedValue)
+          output.append(stringDelimiter)
+      }) match {
+        case Success(value) ⇒ // do nothing
+        case Failure(ex) ⇒ ex match {
+          case e: NumberFormatException ⇒
+            output.append(stringDelimiter)
+            output.append(formattedValue)
+            output.append(stringDelimiter)
+          case e ⇒ throw e
+        }
+      }
+    }
+
+
+}
