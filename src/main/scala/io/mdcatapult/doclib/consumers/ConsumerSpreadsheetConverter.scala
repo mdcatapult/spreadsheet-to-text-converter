@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-object ConsumerToTSVConverter extends App with LazyLogging {
+object ConsumerSpreadsheetConverter extends App with LazyLogging {
 
   implicit val system: ActorSystem = ActorSystem("consumer-totsvconverter")
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
@@ -59,6 +59,7 @@ object ConsumerToTSVConverter extends App with LazyLogging {
       derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
       _ ← OptionT(persist(msg.id, combine(
             set(config.getString("doclib.flag"), true),
+            addToSet("tags", "derivative"),
             set("derivatives", derivatives))).andThen({
               case Success(_) ⇒ paths.foreach(path ⇒ enqueue(path, doc))
               case Failure(e) ⇒ throw e
