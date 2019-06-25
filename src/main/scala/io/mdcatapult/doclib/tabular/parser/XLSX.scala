@@ -36,7 +36,6 @@ class XLSX(file: File) extends Parser {
         false))
       val sheetSource: InputSource = new InputSource(sh._1)
       p.parse(sheetSource)
-      pkg.close()
 
       Sheet(
         sh._2,

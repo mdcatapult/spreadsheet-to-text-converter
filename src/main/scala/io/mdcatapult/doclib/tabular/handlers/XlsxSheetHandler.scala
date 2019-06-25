@@ -14,15 +14,15 @@ class XlsxSheetHandler(output: StringBuilder,
                   ) extends SheetContentsHandler {
 
   private var isFirst: Boolean = false
-  private var currentRow: Int = -1
-  private var currentCol: Int = -1
+  private var currentRow: Int = 0
+  private var currentCol: Int = 0
 
 
   def startRow(rowNum: Int): Unit = {
     outputMissingRows(rowNum - currentRow - 1)
     isFirst = true
     currentRow = rowNum
-    currentCol = -1
+    currentCol = 0
   }
 
   private def outputMissingRows(number: Int): Unit =
@@ -34,7 +34,7 @@ class XlsxSheetHandler(output: StringBuilder,
     }
 
   def endRow(rowNum: Int): Unit = {
-    for (_ ← currentCol to minColumns.get) {
+    for (_ ← currentCol until minColumns.get) {
       output.append(fieldDelimiter)
     }
     output.append(lineDelimiter.get)

@@ -37,8 +37,8 @@ class XLS(file: File) extends Parser with HSSFListener {
     lineDelimiter = lineDel
     val factory = new HSSFEventFactory
     val request = new HSSFRequest
-//    request.addListenerForAllRecords(formatListener)
-    request.addListenerForAllRecords(workbookBuildingListener)
+    request.addListenerForAllRecords(formatListener)
+//    request.addListenerForAllRecords(workbookBuildingListener)
     factory.processWorkbookEvents(request, poifs)
     poifs.close()
     output.toList
