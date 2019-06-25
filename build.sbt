@@ -1,11 +1,11 @@
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.18"
-lazy val catsVersion = "1.5.0-RC1"
+lazy val catsVersion = "2.0.0-M1"
 lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val apachePoiVersion = "4.0.1"
+lazy val apachePoiVersion = "4.1.0"
 
 val meta = """META.INF(.)*""".r
 
@@ -14,7 +14,7 @@ lazy val root = (project in file(".")).
     name              := "consumer-totsvconverter",
     version           := "0.1",
     scalaVersion      := "2.12.8",
-    scalacOptions     += "-Ypartial-unification",
+    scalacOptions     ++= Seq("-Ypartial-unification"),
     resolvers         ++= Seq(
       "MDC Nexus Public" at "http://nexus.mdcatapult.io/repository/maven-public/",
       "Maven Public" at "https://repo1.maven.org/maven2"),
@@ -27,15 +27,18 @@ lazy val root = (project in file(".")).
       }
     },
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-slf4j"         % akkaVersion,
-      "ch.qos.logback" % "logback-classic"        % "1.2.3",
+      "org.scalactic" %% "scalactic"                  % "3.0.5",
+      "org.scalatest" %% "scalatest"                  % "3.0.5" % "test",
+      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
+      "ch.qos.logback" % "logback-classic"            % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-      "com.typesafe" % "config"                   % configVersion,
-      "org.typelevel" %% "cats-macros"            % catsVersion,
-      "org.typelevel" %% "cats-kernel"            % catsVersion,
-      "org.typelevel" %% "cats-core"              % catsVersion,
-      "io.mdcatapult.klein" %% "queue"            % "0.0.4",
-      "io.mdcatapult.klein" %% "mongo"            % "0.0.3",
+      "com.typesafe" % "config"                       % configVersion,
+      "org.typelevel" %% "cats-macros"                % catsVersion,
+      "org.typelevel" %% "cats-kernel"                % catsVersion,
+      "org.typelevel" %% "cats-core"                  % catsVersion,
+      "io.mdcatapult.klein" %% "queue"                % "0.0.5",
+      "io.mdcatapult.klein" %% "mongo"                % "0.0.3",
+      "io.mdcatapult.doclib" %% "doclib-common"       % "0.0.3",
       "org.apache.commons" % "commons-compress"       % "1.18",
       "org.apache.tika" % "tika-core"                 % tikaVersion,
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
