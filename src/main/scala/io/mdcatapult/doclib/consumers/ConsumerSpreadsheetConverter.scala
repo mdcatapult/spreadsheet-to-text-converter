@@ -59,7 +59,6 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
       derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
       _ ← OptionT(persist(msg.id, combine(
             set(config.getString("doclib.flag"), true),
-            addToSet("tags", "derivative"),
             set("derivatives", derivatives))).andThen({
               case Success(_) ⇒ paths.foreach(path ⇒ enqueue(path, doc))
               case Failure(e) ⇒ throw e
@@ -108,7 +107,7 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
     downstream.send(PrefetchMsg(
       source,
       doc.getObjectId("_id").toString,
-      doc("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList
+      (doc("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList ::: List("derivative")).distinct
     ))
     source
   }
