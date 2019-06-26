@@ -11,7 +11,7 @@ val meta = """META.INF(.)*""".r
 
 lazy val root = (project in file(".")).
   settings(
-    name              := "consumer-totsvconverter",
+    name              := "consumer-spreadsheetconverter",
     version           := "0.1",
     scalaVersion      := "2.12.8",
     scalacOptions     ++= Seq("-Ypartial-unification"),
@@ -51,7 +51,7 @@ lazy val root = (project in file(".")).
       "org.xerial" % "sqlite-jdbc"                      % "3.25.2",
       "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
-    assemblyJarName := "consumer-totsvconverter.jar",
+    assemblyJarName := "consumer-spreadsheetconverter.jar",
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
