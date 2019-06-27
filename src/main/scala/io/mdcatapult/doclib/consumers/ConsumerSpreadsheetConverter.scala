@@ -65,13 +65,16 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
     } yield paths).value.andThen({
       case Success(p) ⇒ p match {
         case Some(paths) ⇒
-          logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
+          persist(msg.id, set(config.getString("doclib.flag"), true)).andThen({
+            case Failure(err) ⇒ throw err
+            case Success(_) ⇒ logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
+          })
         case None ⇒ persist(msg.id, set(config.getString("doclib.flag"), false)).andThen({
-          case Failure(ierr) ⇒ throw ierr
-          case Success(_) ⇒ _
+          case Failure(err) ⇒ throw err
+          case _ ⇒ // do nothing
         })
       }
-      case Failure(oerr) ⇒ throw oerr
+      case Failure(err) ⇒ throw err
     })
 
 
