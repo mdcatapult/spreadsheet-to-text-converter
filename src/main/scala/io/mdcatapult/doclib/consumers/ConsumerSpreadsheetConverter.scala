@@ -54,6 +54,7 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
       _ ← OptionT.fromOption[Future](validateMimetype(doc))
       _  ← OptionT(persist(msg.id, set(config.getString("doclib.flag"), null)))
       paths: List[String] ← OptionT.pure[Future](process(doc))
+      if paths.nonEmpty
       derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
       _ ← OptionT(persist(msg.id, combine(
             set(config.getString("doclib.flag"), true),
@@ -65,7 +66,10 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
       case Success(p) ⇒ p match {
         case Some(paths) ⇒
           logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
-        case None ⇒ throw new Exception("Could not complete converstion of tabular data")
+        case None ⇒ persist(msg.id, set(config.getString("doclib.flag"), false)).andThen({
+          case Failure(ierr) ⇒ throw ierr
+          case Success(_) ⇒ _
+        })
       }
       case Failure(oerr) ⇒
         persist(msg.id, set(config.getString("doclib.flag"), false)).andThen({
@@ -188,7 +192,5 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
 
   def persist(id: String, update: Bson): Future[Option[UpdateResult]] =
     collection.updateOne(equal("_id", new ObjectId(id)), update).toFutureOption()
-
-
 
 }
