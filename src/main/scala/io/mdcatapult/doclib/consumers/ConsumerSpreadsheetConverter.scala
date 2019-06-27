@@ -71,11 +71,7 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
           case Success(_) ⇒ _
         })
       }
-      case Failure(oerr) ⇒
-        persist(msg.id, set(config.getString("doclib.flag"), false)).andThen({
-          case Failure(ierr) ⇒ throw ierr
-          case Success(_) ⇒ throw oerr
-        })
+      case Failure(oerr) ⇒ throw oerr
     })
 
 
