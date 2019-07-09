@@ -51,7 +51,7 @@ class XlsxSheetHandler(output: StringBuilder,
           cellReference
       ).getCol
       val missedCols = thisCol - currentCol - 1
-      for (_ ← 1 until missedCols) {
+      for (_ ← 0 until missedCols) {
         output.append(fieldDelimiter)
       }
       currentCol = thisCol

@@ -51,9 +51,16 @@ class XLS(file: File) extends Parser with HSSFListener {
   def processRecord(record: Record): Unit = {
     val (rowNum, colNum): (Int, Int) = record match {
       case r: LastCellOfRowDummyRecord ⇒
-        for (_ ← columnIndex until minColumns.get) {
-          sheetContents.append(fieldDelimiter)
+        if (minColumns.getOrElse(0) > 0) {
+          for (_ ← columnIndex until minColumns.get) {
+            sheetContents.append(fieldDelimiter)
+          }
+        } else {
+          val r = sheetContents.toString().replaceAll(s"$fieldDelimiter+$$", "")
+          sheetContents = new StringBuilder().append(r)
         }
+
+
         if (lineDelimiter.isDefined) sheetContents.append(lineDelimiter.get)
         (rowIndex+1,0)
 
@@ -89,8 +96,10 @@ class XLS(file: File) extends Parser with HSSFListener {
           output += Sheet(sheetIndex, boundRecords(sheetIndex).getSheetname, sheetContents.toString())
         (0,0)
 
-      case r: BlankRecord ⇒ (
-        r.getRow, r.getColumn)
+      case r: BlankRecord ⇒
+        if (r.getColumn > 0) sheetContents.append(fieldDelimiter)
+        (r.getRow, r.getColumn)
+
       case r: BoolErrRecord ⇒
         (r.getRow, r.getColumn)
       case r: FormulaRecord ⇒
