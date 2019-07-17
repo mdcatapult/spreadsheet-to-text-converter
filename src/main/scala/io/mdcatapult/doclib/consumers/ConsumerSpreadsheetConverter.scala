@@ -10,7 +10,8 @@ import com.spingo.op_rabbit.SubscriptionRef
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.DoclibMsg
-import io.mdcatapult.doclib.messages.legacy.PrefetchMsg
+import io.mdcatapult.doclib.messages.PrefetchMsg
+import io.mdcatapult.doclib.models.PrefetchOrigin
 import io.mdcatapult.doclib.tabular.{Document ⇒ TabularDoc, Sheet ⇒ TabSheet}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
@@ -103,10 +104,15 @@ object ConsumerSpreadsheetConverter extends App with LazyLogging {
     */
   def enqueue(source: String, doc: Document): String = {
     downstream.send(PrefetchMsg(
-      source,
-      doc.getObjectId("_id").toString,
-      Some((doc("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList ::: List("derivative")).distinct),
-      None
+      source=source,
+      tags=Some((doc("tags").asArray().getValues.asScala.map(tag => tag.asString().getValue).toList ::: List("derivative")).distinct),
+      metadata=None,
+      origin=Some(List(PrefetchOrigin(
+        scheme = "mongodb",
+        metadata = Some(Map[String, Any](
+          "db" → config.getString("mongo.database"),
+          "collection" → config.getString("mongo.collection"),
+          "_id" → doc.getObjectId("_id").toString))))),
     ))
     source
   }
