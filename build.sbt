@@ -6,6 +6,7 @@ lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
 lazy val apachePoiVersion = "4.1.0"
+lazy val doclibCommonVersion = "0.0.20-SNAPSHOT"
 
 val meta = """META.INF(.)*""".r
 
@@ -36,7 +37,7 @@ lazy val root = (project in file(".")).
       "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
-      "io.mdcatapult.doclib" %% "common"              % "0.0.7",
+      "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "org.apache.commons" % "commons-compress"       % "1.18",
       "org.apache.tika" % "tika-core"                 % tikaVersion,
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
