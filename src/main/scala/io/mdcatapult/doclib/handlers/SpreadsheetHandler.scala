@@ -26,7 +26,7 @@ import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[DoclibMsg])
@@ -65,13 +65,14 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
         case Some(paths) ⇒ logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
         case None ⇒ // do nothing?
       }
-      case Failure(err) ⇒ Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), Duration.Inf)) match {
+      // Wait 10 seconds then fail
+      case Failure(_) ⇒ Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), 10 seconds)) match {
         case Success(value: Option[DoclibDoc]) ⇒ value match {
           case Some(aDoc) ⇒ flags.error(aDoc, noCheck = true)
           case _ ⇒ // captured by error handling
         }
+        case Failure(_) ⇒ // Error will bubble up
       }
-      case Failure(_) ⇒  // should be captured by error handling
     })
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {

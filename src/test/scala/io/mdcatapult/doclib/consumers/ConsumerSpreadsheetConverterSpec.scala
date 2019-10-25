@@ -5,25 +5,31 @@ import java.time.LocalDateTime
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
+import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
 import com.typesafe.config.{Config, ConfigFactory}
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
-import io.mdcatapult.doclib.models.DoclibDoc
-import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
+import io.mdcatapult.doclib.util.MongoCodecs
+import io.mdcatapult.klein.queue.Queue
+import org.bson.{BsonString, BsonValue}
+import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
+import org.mongodb.scala.bson.conversions.Bson
+import org.mongodb.scala.model.Updates.{combine, set}
+import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.{MongoCollection, SingleObservable}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FlatSpecLike
-import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
-import io.mdcatapult.doclib.util.MongoCodecs
-import org.bson.codecs.configuration.CodecRegistry
-import org.mongodb.scala.MongoCollection
+import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with FlatSpecLike with MockFactory {
+  """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures {
 
   implicit val config: Config = ConfigFactory.parseString(
     """
@@ -51,8 +57,29 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   implicit val executor: ExecutionContextExecutor = system.getDispatcher
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
-  val wrappedCollection: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
-  implicit val collection: MongoCollection[DoclibDoc] = MongoCollection[DoclibDoc](wrappedCollection)
+  val wrapped: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
+
+  // Fake class for mongo db since mocking it is soooooooooo hard
+  class MI extends MongoCollection[DoclibDoc](wrapped) {
+    override def updateOne(filter: Bson, update: Bson): SingleObservable[UpdateResult] = {
+      //TODO pull the id out of the filter and return it as the upserted id
+      SingleObservable(new UpdateResult(
+
+      ) {
+        override def wasAcknowledged(): Boolean = true
+
+        override def getMatchedCount: Long = ???
+
+        override def isModifiedCountAvailable: Boolean = ???
+
+        override def getModifiedCount: Long = 1
+
+        override def getUpsertedId: BsonValue = new BsonString("45678")
+      })
+    }
+  }
+
+  implicit val collection: MongoCollection[DoclibDoc] = new MI
 
   // Fake the queues, we are not interacting with them
   class QP extends Queue[PrefetchMsg](name = "prefetch-message-queue") {
@@ -99,8 +126,20 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   }
 
 
-  "It" should "do something" in {
+  "It" should "create a target path" in {
     val result = spreadsheetHandler.getTargetPath(validDoc.source)
     assert(result == "test/derivatives/resources/test/")
+  }
+
+  "It" should "save a document in the mongo collection" in {
+    val id = new ObjectId()
+    // Just testing that the persist attempts to update the collection using the fake mongodb implementation
+    val result = Await.result(spreadsheetHandler.persist(id.toString, combine(
+      set("derivatives", List[Derivative]()))
+    ), 5 seconds)
+    assert(result.get.wasAcknowledged == true)
+    assert(result.get.getModifiedCount == 1)
+    // The mock class has "45678" so it confirms that this was called
+    assert(result.get.getUpsertedId.asString.getValue == "45678")
   }
 }
