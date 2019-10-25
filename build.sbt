@@ -1,16 +1,20 @@
 lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.5.18"
-lazy val catsVersion = "2.0.0-M1"
+lazy val akkaVersion = "2.5.25"
+lazy val catsVersion = "2.0.0"
 lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
-lazy val tikaVersion = "1.20"
+lazy val tikaVersion = "1.21"
 lazy val apachePoiVersion = "4.1.0"
+lazy val playTestVersion = "4.0.0"
 lazy val doclibCommonVersion = "0.0.20-SNAPSHOT"
 
 val meta = """META.INF(.)*""".r
 
+lazy val IntegrationTest = config("it") extend(Test)
+
 lazy val root = (project in file(".")).
+  configs(IntegrationTest).
   settings(
     name              := "consumer-spreadsheetconverter",
     version           := "0.1",
@@ -29,7 +33,10 @@ lazy val root = (project in file(".")).
     },
     libraryDependencies ++= Seq(
       "org.scalactic" %% "scalactic"                  % "3.0.5",
-      "org.scalatest" %% "scalatest"                  % "3.0.5" % "test",
+      "org.scalatest" %% "scalatest"                  % "3.0.5" % "it, test",
+      "org.scalamock" %% "scalamock"                  % "4.3.0" % "it,test",
+      "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
+      "org.scalatestplus.play" %% "scalatestplus-play" % playTestVersion % "test",
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
