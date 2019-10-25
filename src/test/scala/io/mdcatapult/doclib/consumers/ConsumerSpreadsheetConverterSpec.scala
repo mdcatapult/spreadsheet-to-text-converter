@@ -57,10 +57,10 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   implicit val executor: ExecutionContextExecutor = system.getDispatcher
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
-  val wrapped: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
+  val wrappedCollection: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
 
   // Fake class for mongo db since mocking it is soooooooooo hard
-  class MI extends MongoCollection[DoclibDoc](wrapped) {
+  class MI extends MongoCollection[DoclibDoc](wrappedCollection) {
     override def updateOne(filter: Bson, update: Bson): SingleObservable[UpdateResult] = {
       //TODO pull the id out of the filter and return it as the upserted id
       SingleObservable(new UpdateResult(
