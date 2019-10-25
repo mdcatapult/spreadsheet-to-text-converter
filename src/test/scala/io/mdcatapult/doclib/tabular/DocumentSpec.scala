@@ -11,7 +11,7 @@ class DocumentSpec extends FlatSpec {
   "An XLSX file" should "be parsable as a valid document" in {
     val testFile = getClass.getResource("/test.xlsx")
     val path = Paths.get(testFile.toURI)
-    val result = new Document(path) to "tsv"
+    val result = new Document(path) convertTo "tsv"
     assert(result.length == 2)
     assert(result.head.content == expected)
   }
@@ -19,7 +19,7 @@ class DocumentSpec extends FlatSpec {
   "An XLS file" should "be parsable as a valid document" in {
     val testFile = getClass.getResource("/test.xls")
     val path = Paths.get(testFile.toURI)
-    val result = new Document(path) to "tsv"
+    val result = new Document(path) convertTo "tsv"
     assert(result.length == 2)
     assert(result.head.content == expected)
   }
