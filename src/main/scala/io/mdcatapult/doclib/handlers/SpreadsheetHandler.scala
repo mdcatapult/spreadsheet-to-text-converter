@@ -170,7 +170,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
   def process(doc: DoclibDoc): List[String] = {
     val targetPath = getTargetPath(doc.source)
     val d = new TabularDoc(Paths.get(doc.source))
-    d.to(config.getString("output.format"))
+    d.convertTo(config.getString("output.format"))
       .filter(_.content.length > 0)
       .map(s ⇒ saveToFS(s, targetPath))
       .filter(_.path.isDefined)

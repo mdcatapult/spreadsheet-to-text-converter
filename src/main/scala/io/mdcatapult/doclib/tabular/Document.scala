@@ -18,7 +18,7 @@ class Document(path: Path) {
   else if (path.toString.toLowerCase.endsWith(".xlsx")) new XLSX(file)
   else new Default(file)
 
-  def to(format: String): List[TabSheet] = format match {
+  def convertTo(format: String): List[TabSheet] = format match {
     case "tsv" ⇒ parser.parse("\t", "\"")
     case "csv" ⇒ parser.parse(",", "\"")
     case _ ⇒ throw new Exception(f"Format $format not currently supported")
