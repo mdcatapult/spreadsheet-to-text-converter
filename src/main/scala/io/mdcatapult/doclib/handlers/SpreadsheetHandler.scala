@@ -153,14 +153,21 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
    * @param source String
    * @return String full path to new target
    */
-  def getTargetPath(source: String): String = {
-    val targetRoot = config.getString("output.baseDirectory").replaceAll("/+$", "")
-    val sourceName = FilenameUtils.removeExtension(source)
-    val c = commonPath(List(targetRoot, sourceName))
-    val scrubbed = sourceName.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
-    s"$targetRoot/$scrubbed/"
+  def getTargetPath(source: String, base: String, prefix: Option[String] = None): String = {
+    val targetRoot = base.replaceAll("/+$", "")
+    val regex = """(.*)/(.*)$""".r
+    source match {
+      case regex(path, file) ⇒
+        val c = commonPath(List(targetRoot, path))
+        val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
+        val targetPath = scrubbed match {
+          case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
+          case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
+        }
+        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}-$file").toString
+      case _ ⇒ source
+    }
   }
-
 
   /**
    * generate new converted strings and save to the FS
@@ -168,7 +175,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
    * @return List[String] list of new paths created
    */
   def process(doc: DoclibDoc): List[String] = {
-    val targetPath = getTargetPath(doc.source)
+    val targetPath = getTargetPath(doc.source, config.getString("convert.to.path"))
     val d = new TabularDoc(Paths.get(doc.source))
     d.convertTo(config.getString("output.format"))
       .filter(_.content.length > 0)

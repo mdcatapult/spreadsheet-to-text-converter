@@ -47,9 +47,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |    target-dir: "archive"
       |  }
       |}
-      |output {
+      |convert {
       |  format: "tsv"
-      |  baseDirectory: "test/derivatives"
+      |  to: {
+      |    path: "derivatives"
+      |  }
       |}
     """.stripMargin)
 
@@ -97,7 +99,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   val validDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
-    source = "test/resources/test.csv",
+    source = "local/resources/test.csv",
     hash = "01234567890",
     mimetype = "text/csv",
     created = LocalDateTime.parse("2019-10-01T12:00:00"),
@@ -106,7 +108,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   val invalidDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
-    source = "test/resources/test.csv",
+    source = "local/resources/test.csv",
     hash = "01234567890",
     mimetype = "text/plain",
     created = LocalDateTime.parse("2019-10-01T12:00:00"),
@@ -126,9 +128,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   }
 
 
-  "It" should "create a target path" in {
-    val result = spreadsheetHandler.getTargetPath(validDoc.source)
-    assert(result == "test/derivatives/resources/test/")
+  "Spreadsheet handler" should "create a target path from a doclib doc source" in {
+    val result = spreadsheetHandler.getTargetPath(validDoc.source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(result == "ingress/derivatives/resources/spreadsheet_conv-test.csv")
   }
 
   "It" should "save a document in the mongo collection" in {
@@ -141,5 +143,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     assert(result.get.getModifiedCount == 1)
     // The mock class has "45678" so it confirms that this was called
     assert(result.get.getUpsertedId.asString.getValue == "45678")
+  }
+
+  "A derivative" should "be ingested into doclib-root/temp-dir" in {
+    val source = "local/test.csv"
+    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
   }
 }
