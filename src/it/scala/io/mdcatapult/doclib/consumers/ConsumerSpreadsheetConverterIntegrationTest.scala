@@ -34,6 +34,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     """
       |doclib {
       |  root: "test-assets"
+      |  overwriteDerivatives: false
       |  local {
       |    target-dir: "local"
       |    temp-dir: "ingress"

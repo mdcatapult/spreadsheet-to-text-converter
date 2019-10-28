@@ -35,6 +35,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     """
       |doclib {
       |  root: "test-assets"
+      |  overwriteDerivatives: false
       |  local {
       |    target-dir: "local"
       |    temp-dir: "ingress"
@@ -149,5 +150,30 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val source = "local/test.csv"
     val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
     assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
+  }
+
+  "A spreadsheet source" should "have a target path within doclib.temp-dir" in {
+    val source = "remote/test.csv"
+    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
+  }
+
+  "A list of derivatives and a list of paths" can "be merged" in {
+    val derivatives: List[Derivative] = List[Derivative](
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
+    )
+    val derDoc = DoclibDoc(
+      _id = new ObjectId("5d970056b3e8083540798f90"),
+      source = "local/resources/test.csv",
+      hash = "01234567890",
+      mimetype = "text/csv",
+      derivatives = Some(derivatives),
+      created = LocalDateTime.parse("2019-10-01T12:00:00"),
+      updated = LocalDateTime.parse("2019-10-01T12:00:01")
+    )
+    val derivativePaths = List[String]("ingress/derivatives/remote/spreadsheet_conv-test.csv/0_sheet1.tsv", "ingress/derivatives/remote/spreadsheet_conv-test.csv/1_sheet2.tsv")
+    val a = spreadsheetHandler.mergeDerivatives(derDoc, derivativePaths)
+    assert(a.length == 4)
   }
 }
