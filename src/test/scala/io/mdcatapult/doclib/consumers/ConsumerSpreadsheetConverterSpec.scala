@@ -34,7 +34,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   implicit val config: Config = ConfigFactory.parseString(
     """
       |doclib {
-      |  root: "test"
+      |  root: "test-assets"
       |  local {
       |    target-dir: "local"
       |    temp-dir: "ingress"

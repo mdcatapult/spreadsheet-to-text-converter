@@ -1,5 +1,6 @@
 package io.mdcatapult.doclib.consumers
 
+import java.io.File
 import java.nio.file.Paths
 import java.time.LocalDateTime
 
@@ -32,7 +33,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   implicit val config: Config = ConfigFactory.parseString(
     """
       |doclib {
-      |  root: "test"
+      |  root: "test-assets"
       |  local {
       |    target-dir: "local"
       |    temp-dir: "ingress"
@@ -45,9 +46,11 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       |    target-dir: "archive"
       |  }
       |}
-      |output {
+      |convert {
       |  format: "tsv"
-      |  baseDirectory: "test/derivatives"
+      |  to: {
+      |    path: "derivatives"
+      |  }
       |}
     """.stripMargin)
 
@@ -75,9 +78,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   "A spreadsheet can be converted" should "be validated" in {
     sheets.foreach(x ⇒ {
-      val testFile = getClass.getResource(x._1)
-      val path = Paths.get(testFile.toURI)
-      println(path)
+      val path = new File("local", x._1)
       val doc = DoclibDoc(
         _id = new ObjectId("5d970056b3e8083540798f90"),
         source = path.toString,

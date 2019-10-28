@@ -10,6 +10,9 @@ import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+
+import better.files._
+import better.files.{File => ScalaFile, _}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
@@ -124,7 +127,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
    */
   def saveToFS(sheet: TabSheet, targetPath: String): TabSheet = {
     val filename = sheet.name.replaceAll(" ", "_").replaceAll("[^0-9a-zA-Z_-]", "-")
-    val target = new File(s"$targetPath/${sheet.index}_$filename.${config.getString("output.format")}")
+    val target = new File(s"$targetPath/${sheet.index}_$filename.${config.getString("convert.format")}")
     target.getParentFile.mkdirs()
     val w = new BufferedWriter(new FileWriter(target))
     w.write(sheet.content)
@@ -146,6 +149,15 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
     }
     if (paths.length < 2) paths.headOption.getOrElse("")
     else paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+  }
+
+  /**
+   * The absolute path from file system root through doclib root to the actual file
+   * @param path
+   * @return
+   */
+  def getAbsPath(path: String): String = {
+    Paths.get(config.getString("doclib.root"), path).toAbsolutePath.toString
   }
 
   /**
@@ -175,11 +187,12 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
    * @return List[String] list of new paths created
    */
   def process(doc: DoclibDoc): List[String] = {
-    val targetPath = getTargetPath(doc.source, config.getString("convert.to.path"))
-    val d = new TabularDoc(Paths.get(doc.source))
-    d.convertTo(config.getString("output.format"))
+    val targetPath = getTargetPath(doc.source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    val sourceAbsPath:ScalaFile = config.getString("doclib.root")/doc.source
+    val d = new TabularDoc(Paths.get(sourceAbsPath.toString()))
+    d.convertTo(config.getString("convert.format"))
       .filter(_.content.length > 0)
-      .map(s ⇒ saveToFS(s, targetPath))
+      .map(s ⇒ saveToFS(s, getAbsPath(targetPath)))
       .filter(_.path.isDefined)
       .map(_.path.get)
   }
