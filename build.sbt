@@ -16,6 +16,7 @@ lazy val IntegrationTest = config("it") extend(Test)
 lazy val root = (project in file(".")).
   configs(IntegrationTest).
   settings(
+    Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
     version           := "0.1",
     scalaVersion      := "2.12.8",
@@ -37,7 +38,6 @@ lazy val root = (project in file(".")).
       "org.scalatest" %% "scalatest"                  % "3.0.5" % "it, test",
       "org.scalamock" %% "scalamock"                  % "4.3.0" % "it,test",
       "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
-      "org.scalatestplus.play" %% "scalatestplus-play" % playTestVersion % "test",
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
