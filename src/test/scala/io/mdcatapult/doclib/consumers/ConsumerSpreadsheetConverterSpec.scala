@@ -1,11 +1,13 @@
 package io.mdcatapult.doclib.consumers
 
 import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
 import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
+import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
@@ -31,7 +33,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   akka.loggers = ["akka.testkit.TestEventListener"]
   """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures {
 
-  implicit val config: Config = ConfigFactory.parseString(
+  // Note: we are going to overwrite this in a later test so var not val.
+  implicit var config: Config = ConfigFactory.parseString(
     """
       |doclib {
       |  root: "test-assets"
@@ -52,6 +55,16 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |  format: "tsv"
       |  to: {
       |    path: "derivatives"
+      |  }
+      |}
+      |mongo {
+      |  database: "prefetch-test"
+      |  collection: "documents"
+      |  connection {
+      |    username: "doclib"
+      |    password: "doclib"
+      |    database: "admin"
+      |    hosts: ["localhost"]
       |  }
       |}
     """.stripMargin)
@@ -87,6 +100,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   // Fake the queues, we are not interacting with them
   class QP extends Queue[PrefetchMsg](name = "prefetch-message-queue") {
 
+    // keep track of number of messages sent
+    val sent: AtomicInteger = new AtomicInteger(0)
+    override def send(envelope: PrefetchMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+      sent.set(sent.get() + 1)
+    }
   }
 
   class QD extends Queue[DoclibMsg](name = "doclib-message-queue") {
@@ -175,5 +193,80 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val derivativePaths = List[String]("ingress/derivatives/remote/spreadsheet_conv-test.csv/0_sheet1.tsv", "ingress/derivatives/remote/spreadsheet_conv-test.csv/1_sheet2.tsv")
     val a = spreadsheetHandler.mergeDerivatives(derDoc, derivativePaths)
     assert(a.length == 4)
+  }
+
+  "Derivatives" should "be overwritten if flag set" in {
+    config = ConfigFactory.parseString(
+      """
+        |doclib {
+        |  root: "test-assets"
+        |  overwriteDerivatives: true
+        |  local {
+        |    target-dir: "local"
+        |    temp-dir: "ingress"
+        |  }
+        |  remote {
+        |    target-dir: "remote"
+        |    temp-dir: "remote-ingress"
+        |  }
+        |  archive {
+        |    target-dir: "archive"
+        |  }
+        |}
+        |convert {
+        |  format: "tsv"
+        |  to: {
+        |    path: "derivatives"
+        |  }
+        |}
+        |mongo {
+        |  database: "prefetch-test"
+        |  collection: "documents"
+        |  connection {
+        |    username: "doclib"
+        |    password: "doclib"
+        |    database: "admin"
+        |    hosts: ["localhost"]
+        |  }
+        |}
+    """.stripMargin)
+    val mySpreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
+    val derivatives: List[Derivative] = List[Derivative](
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
+    )
+    val derDoc = DoclibDoc(
+      _id = new ObjectId("5d970056b3e8083540798f90"),
+      source = "local/resources/test.csv",
+      hash = "01234567890",
+      mimetype = "text/csv",
+      derivatives = Some(derivatives),
+      created = LocalDateTime.parse("2019-10-01T12:00:00"),
+      updated = LocalDateTime.parse("2019-10-01T12:00:01")
+    )
+    val derivativePaths = List[String]("ingress/derivatives/remote/spreadsheet_conv-test.csv/0_sheet1.tsv", "ingress/derivatives/remote/spreadsheet_conv-test.csv/1_sheet2.tsv")
+    val a = mySpreadsheetHandler.mergeDerivatives(derDoc, derivativePaths)
+    assert(a.length == 2)
+  }
+
+  "Enqueue" should "send a message to the prefetch queue" in {
+    val qp = new QP
+    val mySpreadsheetHandler = new SpreadsheetHandler(qp, upstream)
+    val derivatives: List[Derivative] = List[Derivative](
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
+      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
+    )
+    val derDoc = DoclibDoc(
+      _id = new ObjectId("5d970056b3e8083540798f90"),
+      source = "local/resources/test.csv",
+      hash = "01234567890",
+      mimetype = "text/csv",
+      derivatives = Some(derivatives),
+      created = LocalDateTime.parse("2019-10-01T12:00:00"),
+      updated = LocalDateTime.parse("2019-10-01T12:00:01")
+    )
+    val result = mySpreadsheetHandler.enqueue("ingress/aFile.txt", derDoc)
+    assert(result == "ingress/aFile.txt")
+    assert(qp.sent.intValue() == 1)
   }
 }
