@@ -1,32 +1,32 @@
 package io.mdcatapult.doclib.consumers
 
 import java.io.File
-import java.nio.file.Paths
 import java.time.LocalDateTime
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
-import com.typesafe.config.{Config, ConfigFactory}
-import io.mdcatapult.doclib.models.DoclibDoc
-import io.mdcatapult.doclib.util.MongoCodecs
-import org.bson.codecs.configuration.CodecRegistry
-import org.bson.types.ObjectId
+import better.files.Dsl.pwd
 import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
+import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.models.DoclibDoc
+import io.mdcatapult.doclib.util.{DirectoryDelete, MongoCodecs}
 import io.mdcatapult.klein.queue.Queue
+import org.bson.codecs.configuration.CodecRegistry
+import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.FlatSpecLike
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
 
 import scala.concurrent.ExecutionContextExecutor
 
 class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures {
+  """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" → 1, "/test.xls" → 2, "/test.xlsx" → 2)
 
@@ -90,6 +90,11 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       val res = spreadsheetHandler.process(doc)
       assert(res.length == x._2)
     })
+  }
+
+  override def afterAll(): Unit = {
+    // These may or may not exist but are all removed anyway
+    deleteDirectories(List((pwd/"test-assets"/"ingress")))
   }
 
 }
