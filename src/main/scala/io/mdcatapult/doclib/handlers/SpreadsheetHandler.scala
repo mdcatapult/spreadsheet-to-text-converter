@@ -195,6 +195,10 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
       .map(s ⇒ saveToFS(s, getAbsPath(targetPath)))
       .filter(_.path.isDefined)
       .map(_.path.get)
+      .map(sheet => {
+        val root: ScalaFile = config.getString("doclib.root")/""
+        sheet.replaceFirst(s"${root.toString()}/", "")
+      })
   }
 
 
