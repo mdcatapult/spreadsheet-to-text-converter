@@ -2,6 +2,7 @@ package io.mdcatapult.doclib.tabular
 
 import java.nio.file.Paths
 
+import io.mdcatapult.doclib.tabular.parser.Parser
 import org.scalatest.FlatSpec
 
 class DocumentSpec extends FlatSpec {
@@ -18,6 +19,14 @@ class DocumentSpec extends FlatSpec {
 
   "An XLS file" should "be parsable as a valid document" in {
     val testFile = getClass.getResource("/test.xls")
+    val path = Paths.get(testFile.toURI)
+    val result = new Document(path) convertTo "tsv"
+    assert(result.length == 2)
+    assert(result.head.content == expected)
+  }
+
+  "An ODS file" should "be parsable as a valid document" in {
+    val testFile = getClass.getResource("/test.ods")
     val path = Paths.get(testFile.toURI)
     val result = new Document(path) convertTo "tsv"
     assert(result.length == 2)
