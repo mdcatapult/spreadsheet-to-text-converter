@@ -56,7 +56,8 @@ lazy val root = (project in file(".")).
       "org.apache.pdfbox" % "jbig2-imageio"           % "3.0.2",
       "com.github.jai-imageio" % "jai-imageio-jpeg2000" % "1.3.0",
       "org.xerial" % "sqlite-jdbc"                      % "3.25.2",
-      "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4"
+      "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4",
+      "org.odftoolkit" % "odfdom-java" % "1.0.0-BETA1"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
     assemblyJarName := "consumer-spreadsheetconverter.jar",
     assemblyMergeStrategy in assembly := {
