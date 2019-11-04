@@ -18,10 +18,9 @@ class ODF(file: File) extends Parser {
    */
   override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String]): List[Sheet] = {
     val spreadsheet = SpreadSheet.createFromFile(file)
-     var result = for {
+    for {
       sheetCount <-( 0 until spreadsheet.getSheetCount).toList
     } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
-    return result
   }
 
   def createSheet(sheetCount: Int, spreadsheet: SpreadSheet, fieldDelimiter: String, lineDelimiter: String): Sheet = {
