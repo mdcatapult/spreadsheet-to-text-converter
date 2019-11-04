@@ -19,7 +19,7 @@ class ODF(file: File) extends Parser {
   override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String]): List[Sheet] = {
     val spreadsheet = SpreadSheet.createFromFile(file)
     for {
-      sheetCount <-( 0 until spreadsheet.getSheetCount).toList
+      sheetCount <-( 0 until spreadsheet.getSheetCount ).toList
     } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
   }
 
@@ -32,7 +32,7 @@ class ODF(file: File) extends Parser {
       i <- 0 to range.getEndPoint.x
       j ← 0 to range.getEndPoint.y
     } {
-      contents.append(sheet.getCellAt(j, i).getValue)
+      contents.append(sheet.getImmutableCellAt(j, i).getValue)
       if (j != range.getEndPoint.y) contents.append(fieldDelimiter)
       if(j == range.getEndPoint.y) contents.append(lineDelimiter)
     }

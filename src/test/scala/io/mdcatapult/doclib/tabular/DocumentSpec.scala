@@ -8,7 +8,6 @@ import org.scalatest.FlatSpec
 class DocumentSpec extends FlatSpec {
 
   val expected = "\"Row1Cell1\"\t\"Row1Cell2\"\t\"Row1Cell3\"\n\"Row2Cell1\"\t\t\"Row2Cell3\"\n\n\"FORMULA\"\t3\t2.1\n"
-  val expected2 = "\"Cell1Row1\"\t\"Cell2Row1\"\t\"Cell3Row1\"\"Cell1Row2\"\t\"Cell2Row2\"\t\"Cell3Row2\"\"FORMULA\"\t\n6\t\n"
 
   val odsSheet0 = "Row1Cell1\tRow1Cell2\tRow1Cell3\nRow2Cell1\t\tRow2Cell3\nFORMULA\t3\t2.1\n"
   val odsSheet1 = "Cell1Row1\tCell2Row1\tCell3Row1\nCell1Row2\tCell2Row2\tCell3Row2\nFORMULA\t6\t\n"
