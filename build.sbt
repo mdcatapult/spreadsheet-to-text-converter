@@ -74,6 +74,7 @@ lazy val root = (project in file(".")).
       case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
+      case PathList("org", "w3c", "dom", "UserDataHandler.class") => MergeStrategy.first
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case meta(_) => MergeStrategy.first
