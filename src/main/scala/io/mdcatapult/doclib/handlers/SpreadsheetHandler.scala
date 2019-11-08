@@ -107,7 +107,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
     downstream.send(PrefetchMsg(
       source=source,
       tags=doc.tags,
-      metadata = Some(doc.metadata.get ::: derivativeMetadata),
+      metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
       derivative=Some(true),
       origin=Some(List(Origin(
         scheme = "mongodb",
