@@ -102,10 +102,12 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
    * @return
    */
   def enqueue(source: String, doc: DoclibDoc): String = {
+    // Let prefetch know that it is a spreadsheet derivative
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "spreadsheet"))
     downstream.send(PrefetchMsg(
       source=source,
       tags=doc.tags,
-      metadata=None,
+      metadata = Some(doc.metadata.get ::: derivativeMetadata),
       derivative=Some(true),
       origin=Some(List(Origin(
         scheme = "mongodb",
