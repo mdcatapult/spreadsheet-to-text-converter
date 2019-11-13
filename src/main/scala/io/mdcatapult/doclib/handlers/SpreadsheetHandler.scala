@@ -5,21 +5,17 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import better.files.{File ⇒ ScalaFile, _}
 import cats.data.OptionT
-import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-
-import better.files._
-import better.files.{File => ScalaFile, _}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
+import io.mdcatapult.doclib.tabular.{Document ⇒ TabularDoc, Sheet ⇒ TabSheet}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
-import io.mdcatapult.doclib.tabular.{Document ⇒ TabularDoc, Sheet ⇒ TabSheet}
-import org.apache.commons.io.FilenameUtils
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
@@ -28,8 +24,8 @@ import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[DoclibMsg])
