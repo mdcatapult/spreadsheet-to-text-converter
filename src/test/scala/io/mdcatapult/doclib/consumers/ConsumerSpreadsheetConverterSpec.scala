@@ -6,14 +6,15 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
-import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
+import com.mongodb.async.client.{MongoCollection => JMongoCollection}
+import com.spingo.op_rabbit.{RecoveryStrategy, Subscription, SubscriptionRef}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
 import io.mdcatapult.doclib.util.MongoCodecs
-import io.mdcatapult.klein.queue.Queue
+import io.mdcatapult.klein.queue.{Queue, Sendable, Subscribable}
 import org.bson.{BsonString, BsonValue}
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
@@ -24,14 +25,20 @@ import org.mongodb.scala.{MongoCollection, SingleObservable}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FlatSpecLike
 import org.scalatest.concurrent.ScalaFutures
+import akka.testkit.TestProbe
+import com.mongodb.async.SingleResultCallback
+import org.bson.conversions.Bson
+import org.mongodb.scala.bson.BsonDocument
+import org.scalamock.matchers.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.language.postfixOps
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures {
+  """))) with ImplicitSender with FlatSpecLike with Matchers with MockFactory with ScalaFutures {
 
   // Note: we are going to overwrite this in a later test so var not val.
   implicit var config: Config = ConfigFactory.parseString(
@@ -73,42 +80,27 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   implicit val executor: ExecutionContextExecutor = system.getDispatcher
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
-  val wrappedCollection: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
-
-  // Fake class for mongo db since mocking it is soooooooooo hard
-  class MI extends MongoCollection[DoclibDoc](wrappedCollection) {
-    override def updateOne(filter: Bson, update: Bson): SingleObservable[UpdateResult] = {
-      //TODO pull the id out of the filter and return it as the upserted id
-      SingleObservable(new UpdateResult(
-
-      ) {
-        override def wasAcknowledged(): Boolean = true
-
-        override def getMatchedCount: Long = ???
-
-        override def isModifiedCountAvailable: Boolean = ???
-
-        override def getModifiedCount: Long = 1
-
-        override def getUpsertedId: BsonValue = new BsonString("45678")
-      })
-    }
-  }
-
-  implicit val collection: MongoCollection[DoclibDoc] = new MI
+  val wrappedCollection: JMongoCollection[DoclibDoc] = mock[JMongoCollection[DoclibDoc]]
+  implicit val collection: MongoCollection[DoclibDoc] = MongoCollection[DoclibDoc](wrappedCollection)
+  val codecs: CodecRegistry = MongoCodecs.get
 
   // Fake the queues, we are not interacting with them
-  class QP extends Queue[PrefetchMsg](name = "prefetch-message-queue") {
-
-    // keep track of number of messages sent
+  class QP extends Sendable[PrefetchMsg] {
+    val name = "prefetch-message-queue"
+    val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
-    override def send(envelope: PrefetchMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: PrefetchMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
   }
 
-  class QD extends Queue[DoclibMsg](name = "doclib-message-queue") {
-
+  class QD extends Sendable[DoclibMsg] {
+    val name = "doclib-message-queue"
+    val rabbit: ActorRef = testActor
+    val sent: AtomicInteger = new AtomicInteger(0)
+    def send(envelope: DoclibMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+      sent.set(sent.get() + 1)
+    }
   }
 
   val downstream = mock[QP]
@@ -135,7 +127,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   )
 
   "A doclib doc with a valid mimetype" should "be validated" in {
-    assert(spreadsheetHandler.validateMimetype(validDoc).get == true)
+    assert(spreadsheetHandler.validateMimetype(validDoc).get)
 
   }
 
@@ -150,18 +142,6 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   "Spreadsheet handler" should "create a target path from a doclib doc source" in {
     val result = spreadsheetHandler.getTargetPath(validDoc.source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
     assert(result == "ingress/derivatives/resources/spreadsheet_conv-test.csv")
-  }
-
-  "It" should "save a document in the mongo collection" in {
-    val id = new ObjectId()
-    // Just testing that the persist attempts to update the collection using the fake mongodb implementation
-    val result = Await.result(spreadsheetHandler.persist(id.toString, combine(
-      set("derivatives", List[Derivative]()))
-    ), 5 seconds)
-    assert(result.get.wasAcknowledged == true)
-    assert(result.get.getModifiedCount == 1)
-    // The mock class has "45678" so it confirms that this was called
-    assert(result.get.getUpsertedId.asString.getValue == "45678")
   }
 
   "A derivative" should "be ingested into doclib-root/temp-dir" in {
