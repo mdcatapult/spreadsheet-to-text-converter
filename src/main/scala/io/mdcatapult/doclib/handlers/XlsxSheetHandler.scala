@@ -1,4 +1,4 @@
-package io.mdcatapult.doclib.tabular.handlers
+package io.mdcatapult.doclib.handlers
 
 import org.apache.poi.ss.util.{CellAddress, CellReference}
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler

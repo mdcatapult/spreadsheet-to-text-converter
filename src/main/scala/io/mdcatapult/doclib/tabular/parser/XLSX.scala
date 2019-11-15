@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.tabular.parser
 import java.io.File
 
 import io.mdcatapult.doclib.tabular.Sheet
-import io.mdcatapult.doclib.tabular.handlers.XlsxSheetHandler
+import io.mdcatapult.doclib.handlers.XlsxSheetHandler
 import org.apache.poi.ooxml.util.SAXHelper
 import org.apache.poi.openxml4j.opc._
 import org.apache.poi.ss.usermodel.DataFormatter
