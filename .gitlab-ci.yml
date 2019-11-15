@@ -108,7 +108,6 @@ release:
       --request POST https://gitlab.mdcatapult.io/api/v4/projects/$CI_PROJECT_ID/releases
     - git checkout develop
     - git pull
-    - git rebase --abort
     - git rebase master
     - git push origin develop
   artifacts:
