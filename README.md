@@ -7,7 +7,7 @@ A consumer that converts multiple spreadsheet or csv formats to tsv files
 This is a scalal application that runs in side the JVM
 
 ```bash
-java -jar consumer-totsvconverter-poi.jar
+java $JAVA_OPTS -jar consumer.jar --config common.conf
 ```
 
 ## Runtime Configuration
