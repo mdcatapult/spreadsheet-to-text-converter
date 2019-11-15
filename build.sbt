@@ -1,3 +1,6 @@
+import sbtrelease.ReleaseStateTransformations._
+import Release._
+
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.25"
 lazy val catsVersion = "2.0.0"
@@ -7,22 +10,22 @@ lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.21"
 lazy val apachePoiVersion = "4.1.0"
 lazy val playTestVersion = "4.0.0"
-lazy val doclibCommonVersion = "0.0.20-SNAPSHOT"
+lazy val doclibCommonVersion = "0.0.23"
 
 val meta = """META.INF(.)*""".r
 
-lazy val IntegrationTest = config("it") extend(Test)
+lazy val IntegrationTest = config("it") extend Test
 
-lazy val root = (project in file(".")).
-  configs(IntegrationTest).
-  settings(
+lazy val root = (project in file("."))
+  .configs(IntegrationTest)
+  .settings(
     Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
-    version           := "0.1",
     scalaVersion      := "2.12.8",
     scalacOptions     ++= Seq("-Ypartial-unification"),
     resolvers         ++= Seq(
-      "MDC Nexus Public" at "http://nexus.mdcatapult.io/repository/maven-public/",
+      "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
+      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
       "Maven Public" at "https://repo1.maven.org/maven2"),
     updateOptions     := updateOptions.value.withLatestSnapshots(false),
     credentials       += {
@@ -59,7 +62,10 @@ lazy val root = (project in file(".")).
       "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4",
       "org.jopendocument" % "jOpenDocument" % "1.3"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
-    assemblyJarName := "consumer-spreadsheetconverter.jar",
+  )
+  .settings(
+    assemblyJarName := "consumer.jar",
+    test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
@@ -83,5 +89,24 @@ lazy val root = (project in file(".")).
         oldStrategy(x)
     }
   )
+  .settings(
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      runTest,
+      setReleaseVersion,
+      getShortSha,
+      writeReleaseVersionFile,
+      commitAllRelease,
+      tagRelease,
+      runAssembly,
+      setNextVersion,
+      writeNextVersionFile,
+      commitAllNext,
+      pushChanges
+    )
+  )
+
 
 

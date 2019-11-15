@@ -5,7 +5,7 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import better.files.{File ⇒ ScalaFile, _}
+import better.files.{File => ScalaFile, _}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
@@ -13,10 +13,9 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
-import io.mdcatapult.doclib.tabular.{Document ⇒ TabularDoc, Sheet ⇒ TabSheet}
+import io.mdcatapult.doclib.tabular.{Document => TabularDoc, Sheet => TabSheet}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
-import org.bson.codecs.configuration.CodecRegistry
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
@@ -26,6 +25,7 @@ import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[DoclibMsg])
@@ -33,8 +33,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
                          materializer: ActorMaterializer,
                          ex: ExecutionContextExecutor,
                          config: Config,
-                         collection: MongoCollection[DoclibDoc],
-                         codecs: CodecRegistry) extends LazyLogging {
+                         collection: MongoCollection[DoclibDoc]) extends LazyLogging {
 
   lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
 
@@ -152,7 +151,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
 
   /**
    * The absolute path from file system root through doclib root to the actual file
-   * @param path
+   * @param path path to resolve
    * @return
    */
   def getAbsPath(path: String): String = {
