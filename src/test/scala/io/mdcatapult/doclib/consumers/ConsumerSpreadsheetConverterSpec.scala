@@ -11,7 +11,7 @@ import com.spingo.op_rabbit.{RecoveryStrategy, Subscription, SubscriptionRef}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
 import io.mdcatapult.doclib.util.MongoCodecs
 import io.mdcatapult.klein.queue.{Queue, Sendable, Subscribable}
@@ -103,10 +103,20 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     }
   }
 
+  class QS extends Sendable[SupervisorMsg] {
+    val name = "doclib-message-queue"
+    val rabbit: ActorRef = testActor
+    val sent: AtomicInteger = new AtomicInteger(0)
+    def send(envelope: SupervisorMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+      sent.set(sent.get() + 1)
+    }
+  }
+
   val downstream = mock[QP]
   val upstream = mock[QD]
+  val supervisor = mock[QS]
 
-  val spreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
+  val spreadsheetHandler = new SpreadsheetHandler(downstream, supervisor)
 
   val validDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -210,7 +220,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |  }
         |}
     """.stripMargin)
-    val mySpreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
+    val mySpreadsheetHandler = new SpreadsheetHandler(downstream, supervisor)
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
@@ -231,7 +241,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   "Enqueue" should "send a message to the prefetch queue" in {
     val qp = new QP
-    val mySpreadsheetHandler = new SpreadsheetHandler(qp, upstream)
+    val mySpreadsheetHandler = new SpreadsheetHandler(qp, supervisor)
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
