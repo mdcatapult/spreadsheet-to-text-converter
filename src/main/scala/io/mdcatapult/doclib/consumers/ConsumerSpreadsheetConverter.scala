@@ -7,7 +7,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.DoclibDoc
 import io.mdcatapult.doclib.util.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
@@ -26,6 +26,7 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer("consumer-unarchive
     /** initialise queues **/
     val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"), consumerName = Some("spreadsheet-converter"))
     val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"), consumerName = Some("spreadsheet-converter"))
-    upstream.subscribe(new SpreadsheetHandler(downstream, upstream).handle, config.getInt("upstream.concurrent"))
+    val supervisor: Queue[SupervisorMsg] = new Queue[SupervisorMsg](config.getString("doclib.supervisor.queue"), Some("rawtext"))
+    upstream.subscribe(new SpreadsheetHandler(downstream, supervisor).handle, config.getInt("upstream.concurrent"))
   }
 }

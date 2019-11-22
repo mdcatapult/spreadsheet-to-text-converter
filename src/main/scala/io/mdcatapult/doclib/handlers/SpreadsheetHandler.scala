@@ -10,7 +10,7 @@ import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc, Sheet => TabSheet}
@@ -28,7 +28,7 @@ import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[DoclibMsg])
+class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
                         (implicit ac: ActorSystem,
                          materializer: ActorMaterializer,
                          ex: ExecutionContextExecutor,
@@ -58,9 +58,11 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], upstream: Sendable[D
       })
       )
       _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
-    } yield paths).value.andThen({
-      case Success(p) ⇒ p match {
-        case Some(paths) ⇒ logger.info(f"COMPLETED: ${msg.id} - found & created ${paths.length} derivatives")
+    } yield (paths, doc)).value.andThen({
+      case Success(result) ⇒ result match {
+        case Some(r) ⇒
+          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+          logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
         case None ⇒ // do nothing?
       }
       // Wait 10 seconds then fail
