@@ -43,7 +43,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    * @param exchange String name of exchaneg message was sourced from
    * @return
    */
-  def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] =
+  def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
+    logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc ← OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
       started: UpdateResult ← OptionT(flags.start(doc))
@@ -74,6 +75,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
         case Failure(_) ⇒ // Error will bubble up
       }
     })
+  }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
 
