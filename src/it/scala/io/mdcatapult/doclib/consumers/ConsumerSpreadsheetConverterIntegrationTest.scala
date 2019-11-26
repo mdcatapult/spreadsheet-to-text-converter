@@ -13,7 +13,7 @@ import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.messages.{PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
 import io.mdcatapult.doclib.util.{DirectoryDelete, MongoCodecs}
 import io.mdcatapult.klein.queue.Sendable
@@ -103,18 +103,18 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     }
   }
 
-  class QD extends Sendable[DoclibMsg] {
+  class QS extends Sendable[SupervisorMsg] {
     override val name: String = "doclib-message-queue"
     override val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
 
-    def send(envelope: DoclibMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: SupervisorMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
   }
 
   val downstream = mock[QP]
-  val upstream = mock[QD]
+  val upstream = mock[QS]
 
   val spreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
 
