@@ -80,16 +80,13 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
 
     if (List(
-      "application/vnd.lotus-1-2-3",
-      "application/vnd.ms-excel",
-      "application/vnd.ms-excel.sheet.macroenabled.12",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-      "application/vnd.stardivision.calc",
-      "application/vnd.sun.xml.calc",
-      "application/vnd.sun.xml.calc.template",
-      "text/csv"
-    ).contains(doc.mimetype)) {
+      """application/vnd\.lotus.*""".r,
+      """application/vnd\.ms-excel.*""".r,
+      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
+      """application/vnd\.stardivision.calc""".r,
+      """application/vnd\.sun\.xml\.calc.*""".r,
+      """application/vnd\.oasis\.opendocument\.spreadsheet""".r
+    ).count(_.findFirstIn(doc.mimetype).isDefined) > 0) {
       Some(true)
     } else throw new Exception("Document mimetype is not recognised")
   }
