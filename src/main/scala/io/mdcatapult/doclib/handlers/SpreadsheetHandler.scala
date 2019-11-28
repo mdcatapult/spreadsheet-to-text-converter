@@ -78,7 +78,6 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-
     if (List(
       """application/vnd\.lotus.*""".r,
       """application/vnd\.ms-excel.*""".r,

@@ -112,7 +112,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     _id = new ObjectId("5d970056b3e8083540798f90"),
     source = "local/resources/test.csv",
     hash = "01234567890",
-    mimetype = "text/csv",
+    mimetype = "application/vnd.ms-excel",
     created = LocalDateTime.parse("2019-10-01T12:00:00"),
     updated = LocalDateTime.parse("2019-10-01T12:00:01")
   )
