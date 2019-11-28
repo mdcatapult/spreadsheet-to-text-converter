@@ -6,33 +6,23 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
-import com.mongodb.async.client.{MongoCollection => JMongoCollection}
-import com.spingo.op_rabbit.{RecoveryStrategy, Subscription, SubscriptionRef}
+import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
 import io.mdcatapult.doclib.util.MongoCodecs
-import io.mdcatapult.klein.queue.{Queue, Sendable, Subscribable}
-import org.bson.{BsonString, BsonValue}
+import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
-import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.model.Updates.{combine, set}
-import org.mongodb.scala.result.UpdateResult
-import org.mongodb.scala.{MongoCollection, SingleObservable}
+import org.mongodb.scala.MongoCollection
+import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FlatSpecLike
 import org.scalatest.concurrent.ScalaFutures
-import akka.testkit.TestProbe
-import com.mongodb.async.SingleResultCallback
-import org.bson.conversions.Bson
-import org.mongodb.scala.bson.BsonDocument
-import org.scalamock.matchers.Matchers
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContextExecutor
 import scala.language.postfixOps
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
@@ -122,7 +112,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     _id = new ObjectId("5d970056b3e8083540798f90"),
     source = "local/resources/test.csv",
     hash = "01234567890",
-    mimetype = "text/csv",
+    mimetype = "application/vnd.ms-excel",
     created = LocalDateTime.parse("2019-10-01T12:00:00"),
     updated = LocalDateTime.parse("2019-10-01T12:00:01")
   )
@@ -162,6 +152,24 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   "A spreadsheet source" should "have a target path within doclib.temp-dir" in {
     val source = "remote/test.csv"
+    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
+  }
+
+  "An existing derivative" should "only have derivative once in the path" in {
+    val source = "local/derivatives/test.csv"
+    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
+  }
+
+  "A path with multiple derivative segments" should "only have derivative once in the path" in {
+    val source = "local/derivatives/derivatives/derivatives/test.csv"
+    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
+    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
+  }
+
+  "An existing spreadsheet source" should "have a target path within doclib.temp-dir" in {
+    val source = "local/derivatives/remote/test.csv"
     val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
     assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
   }
