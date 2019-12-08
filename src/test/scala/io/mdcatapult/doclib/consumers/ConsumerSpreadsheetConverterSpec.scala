@@ -131,11 +131,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   }
 
-  "A doclib doc with an valid mimetype" should "not be validated" in {
+  "A doclib doc with an invalid mimetype" should "not be validated" in {
     val caught = intercept[Exception] {
       spreadsheetHandler.validateMimetype(invalidDoc)
     }
-    assert(caught.getMessage == "Document mimetype is not recognised")
+    assert(caught.getMessage == "Document: 5d970056b3e8083540798f90 - Mimetype 'text/plain' not allowed'")
   }
 
 
