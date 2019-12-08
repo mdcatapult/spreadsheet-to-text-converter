@@ -36,7 +36,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
                          config: Config,
                          collection: MongoCollection[DoclibDoc]) extends LazyLogging {
 
-  final case class MimetypeNotAllowed(doc: DoclibDoc,
+  case class MimetypeNotAllowed(doc: DoclibDoc,
                                 cause: Throwable = None.orNull)
     extends DoclibDocException(
       doc,
