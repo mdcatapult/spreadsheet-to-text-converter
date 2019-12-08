@@ -24,7 +24,7 @@ import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 
-import scala.concurrent.duration._git pull origin develop
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
