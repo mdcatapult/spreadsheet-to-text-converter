@@ -10,6 +10,7 @@ import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
@@ -34,6 +35,13 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
                          ex: ExecutionContextExecutor,
                          config: Config,
                          collection: MongoCollection[DoclibDoc]) extends LazyLogging {
+
+  case class MimetypeNotAllowed(doc: DoclibDoc,
+                                cause: Throwable = None.orNull)
+    extends DoclibDocException(
+      doc,
+      f"Document: ${doc._id.toHexString} - Mimetype '${doc.mimetype}' not allowed'",
+      cause)
 
   lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
 
@@ -67,6 +75,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
         case None ⇒ // do nothing?
       }
       // Wait 10 seconds then fail
+      case Failure(e: DoclibDocException) ⇒ flags.error(e.getDoc, noCheck = true)
       case Failure(_) ⇒ Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), 10 seconds)) match {
         case Success(value: Option[DoclibDoc]) ⇒ value match {
           case Some(aDoc) ⇒ flags.error(aDoc, noCheck = true)
@@ -78,20 +87,16 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-
     if (List(
-      "application/vnd.lotus-1-2-3",
-      "application/vnd.ms-excel",
-      "application/vnd.ms-excel.sheet.macroenabled.12",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-      "application/vnd.stardivision.calc",
-      "application/vnd.sun.xml.calc",
-      "application/vnd.sun.xml.calc.template",
-      "text/csv"
-    ).contains(doc.mimetype)) {
+      """application/vnd\.lotus.*""".r,
+      """application/vnd\.ms-excel.*""".r,
+      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
+      """application/vnd\.stardivision.calc""".r,
+      """application/vnd\.sun\.xml\.calc.*""".r,
+      """application/vnd\.oasis\.opendocument\.spreadsheet""".r
+    ).count(_.findFirstIn(doc.mimetype).isDefined) > 0) {
       Some(true)
-    } else throw new Exception("Document mimetype is not recognised")
+    } else throw new MimetypeNotAllowed(doc)
   }
 
   /**
