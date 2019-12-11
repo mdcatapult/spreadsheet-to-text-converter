@@ -15,12 +15,20 @@ class Document(path: Path) {
   val file: File = new File(path.toUri)
   lazy val parser: Parser = getParser
 
-  def getParser: Parser = ScalaFile(path.toString).extension match {
-    case Some(".csv") ⇒ new CSV(file)
-    case Some(".xls") ⇒ new XLS(file)
-    case Some(".xlsx") ⇒ new XLSX(file)
-    case Some(".ods") ⇒ new ODF(file)
-    case _ ⇒ new Default(file)
+  def getParser: Parser = {
+    try {
+      ScalaFile(path.toString).extension match {
+        case Some(".csv") ⇒ new CSV(file)
+        case Some(".xls") ⇒ new XLS(file)
+        case Some(".xlsx") ⇒ new XLSX(file)
+        case Some(".ods") ⇒ new ODF(file)
+        case _ ⇒ new Default(file)
+      }
+    } catch {
+      // A catch in case it's an Office 2007+ XML with ".xls" extension ie use XSSF.
+      // TODO something better
+      case e: Exception =>  new XLSX(file)
+    }
   }
 
   def convertTo(format: String): List[TabSheet] = format match {
