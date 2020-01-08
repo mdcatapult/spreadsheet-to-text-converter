@@ -2,10 +2,10 @@ package io.mdcatapult.doclib.tabular
 
 import java.io.File
 import java.nio.file.Path
-import better.files.{File => ScalaFile, _}
 
-import io.mdcatapult.doclib.tabular.{Sheet ⇒ TabSheet}
+import better.files.{File => ScalaFile}
 import io.mdcatapult.doclib.tabular.parser._
+import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
 
 /**
   * Simple control class to act as an interface between the application and parsers
@@ -27,7 +27,7 @@ class Document(path: Path) {
     } catch {
       // A catch in case it's an Office 2007+ XML with ".xls" extension ie use XSSF.
       // TODO something better
-      case e: Exception =>  new XLSX(file)
+      case _: Exception => new XLSX(file)
     }
   }
 

@@ -66,9 +66,9 @@ class XlsxSheetHandler(output: StringBuilder,
           output.append(formattedValue)
           output.append(stringDelimiter)
       }) match {
-        case Success(value) ⇒ // do nothing
+        case Success(_) ⇒ // do nothing
         case Failure(ex) ⇒ ex match {
-          case e: NumberFormatException ⇒
+          case _: NumberFormatException ⇒
             output.append(stringDelimiter)
             output.append(formattedValue)
             output.append(stringDelimiter)
