@@ -48,7 +48,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   /**
    * default handler for messages
    * @param msg DoclibMsg
-   * @param exchange String name of exchaneg message was sourced from
+   * @param exchange String name of exchange message was sourced from
    * @return
    */
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
@@ -96,7 +96,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       """application/vnd\.oasis\.opendocument\.spreadsheet""".r
     ).count(_.findFirstIn(doc.mimetype).isDefined) > 0) {
       Some(true)
-    } else throw new MimetypeNotAllowed(doc)
+    } else throw MimetypeNotAllowed(doc)
   }
 
   /**

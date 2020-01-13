@@ -36,7 +36,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   akka.loggers = ["akka.testkit.TestEventListener"]
   """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
 
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" → 1, "/test.xls" → 2, "/test.xlsx" → 2)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" → 1, "/test.xls" → 2, "/test.xlsx" → 2, "test.ods" → 2)
 
   implicit val config: Config = ConfigFactory.parseString(
     """

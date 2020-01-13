@@ -59,8 +59,8 @@ lazy val root = (project in file("."))
       "org.apache.pdfbox" % "jbig2-imageio"           % "3.0.2",
       "com.github.jai-imageio" % "jai-imageio-jpeg2000" % "1.3.0",
       "org.xerial" % "sqlite-jdbc"                      % "3.25.2",
-      "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4",
-      "org.jopendocument" % "jOpenDocument" % "1.3"
+      "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.6",
+      "com.github.miachm.sods" % "SODS" % "1.2.1",
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
   )
   .settings(
@@ -69,11 +69,11 @@ lazy val root = (project in file("."))
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
-      case PathList("com", "sun", xs @ _*) => MergeStrategy.first
-      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
-      case PathList("javax", "activation", xs @ _*) => MergeStrategy.first
-      case PathList("org", "apache", "commons", xs @ _*) => MergeStrategy.first
-      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
+      case PathList("com", "sun", _*) => MergeStrategy.first
+      case PathList("javax", "servlet", _*) => MergeStrategy.first
+      case PathList("javax", "activation", _*) => MergeStrategy.first
+      case PathList("org", "apache", "commons", _*) => MergeStrategy.first
+      case PathList("com", "ctc", "wstx", _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
       case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
