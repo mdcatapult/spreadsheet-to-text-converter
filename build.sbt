@@ -10,7 +10,7 @@ lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.21"
 lazy val apachePoiVersion = "4.1.0"
 lazy val playTestVersion = "4.0.0"
-lazy val doclibCommonVersion = "0.0.26"
+lazy val doclibCommonVersion = "0.0.34"
 
 val meta = """META.INF(.)*""".r
 
