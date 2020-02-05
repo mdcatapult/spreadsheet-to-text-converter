@@ -2,7 +2,7 @@ import sbtrelease.ReleaseStateTransformations._
 import Release._
 
 lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.5.25"
+lazy val akkaVersion = "2.5.26"
 lazy val catsVersion = "2.0.0"
 lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.7.0"
@@ -10,7 +10,7 @@ lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.21"
 lazy val apachePoiVersion = "4.1.0"
 lazy val playTestVersion = "4.0.0"
-lazy val doclibCommonVersion = "0.0.34"
+lazy val doclibCommonVersion = "0.0.38"
 
 val meta = """META.INF(.)*""".r
 
@@ -21,8 +21,15 @@ lazy val root = (project in file("."))
   .settings(
     Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
-    scalaVersion      := "2.12.8",
-    scalacOptions     ++= Seq("-Ypartial-unification"),
+    scalaVersion      := "2.12.10",
+    scalacOptions ++= Seq(
+      "-encoding", "utf-8",
+      "-unchecked",
+      "-deprecation",
+      "-explaintypes",
+      "-feature",
+      "-Xlint",
+    ),
     resolvers         ++= Seq(
       "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
@@ -37,8 +44,8 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.0.5",
-      "org.scalatest" %% "scalatest"                  % "3.0.5" % "it, test",
+      "org.scalactic" %% "scalactic"                  % "3.1.0",
+      "org.scalatest" %% "scalatest"                  % "3.1.0" % "it,test",
       "org.scalamock" %% "scalamock"                  % "4.3.0" % "it,test",
       "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,

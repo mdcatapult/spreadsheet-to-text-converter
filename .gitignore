@@ -11,3 +11,9 @@ project/target
 *.local.conf
 
 /sbt-cache*
+
+# temporary files
+# libreoffice
+.~*
+# vi
+*.swp

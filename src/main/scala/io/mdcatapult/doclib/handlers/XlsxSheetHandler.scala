@@ -1,5 +1,6 @@
 package io.mdcatapult.doclib.handlers
 
+import io.mdcatapult.doclib.tabular.parser.escapeQuotes
 import org.apache.poi.ss.util.{CellAddress, CellReference}
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler
 import org.apache.poi.xssf.usermodel.XSSFComment
@@ -41,41 +42,42 @@ class XlsxSheetHandler(output: StringBuilder,
   }
 
 
-    def cell(cellReference: String, formattedValue: String, comment: XSSFComment): Unit = {
-      if (isFirst) isFirst = false
-      else output.append(fieldDelimiter)
-      val thisCol = new CellReference(
-        if (cellReference == null)
-          new CellAddress(currentRow, currentCol).formatAsString
-        else
-          cellReference
-      ).getCol
-      val missedCols = thisCol - currentCol - 1
-      for (_ ← 0 until missedCols) {
-        output.append(fieldDelimiter)
-      }
-      currentCol = thisCol
-      val isInteger = """([0-9]+)""".r
-      val isDouble = """([0-9]+.[0-9]*)""".r
+  def cell(cellReference: String, formattedValue: String, comment: XSSFComment): Unit = {
+    if (isFirst) isFirst = false
+    else output.append(fieldDelimiter)
+    val thisCol = new CellReference(
+      if (cellReference == null)
+        new CellAddress(currentRow, currentCol).formatAsString
+      else
+        cellReference
+    ).getCol
+    val missedCols = thisCol - currentCol - 1
+    for (_ ← 0 until missedCols) {
+      output.append(fieldDelimiter)
+    }
+    currentCol = thisCol
+    val isInteger = """([0-9]+)""".r
+    val isDouble = """([0-9]+.[0-9]*)""".r
 
-      Try(formattedValue match {
-        case isInteger(_) ⇒  output.append(formattedValue.toInt)
-        case isDouble(_) ⇒ output.append(formattedValue.toDouble)
-        case _ ⇒
-          output.append(stringDelimiter)
-          output.append(formattedValue)
-          output.append(stringDelimiter)
-      }) match {
-        case Success(_) ⇒ // do nothing
-        case Failure(ex) ⇒ ex match {
-          case _: NumberFormatException ⇒
-            output.append(stringDelimiter)
-            output.append(formattedValue)
-            output.append(stringDelimiter)
-          case e ⇒ throw e
-        }
+    Try(formattedValue match {
+      case isInteger(_) ⇒  output.append(formattedValue.toInt)
+      case isDouble(_) ⇒ output.append(formattedValue.toDouble)
+      case _ ⇒
+        appendText(formattedValue)
+    }) match {
+      case Success(_) ⇒ // do nothing
+      case Failure(ex) ⇒ ex match {
+        case _: NumberFormatException ⇒
+          appendText(formattedValue)
+        case e ⇒ throw e
       }
     }
+  }
 
+  private def appendText(formattedValue: String): Unit = {
+    output.append(stringDelimiter)
+    output.append(escapeQuotes(formattedValue))
+    output.append(stringDelimiter)
+  }
 
 }

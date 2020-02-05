@@ -3,8 +3,6 @@ package io.mdcatapult.doclib.handlers
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Paths
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import better.files.{File => ScalaFile, _}
 import cats.data.OptionT
 import cats.implicits._
@@ -25,14 +23,12 @@ import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
-                        (implicit ac: ActorSystem,
-                         materializer: ActorMaterializer,
-                         ex: ExecutionContextExecutor,
+                        (implicit ex: ExecutionContext,
                          config: Config,
                          collection: MongoCollection[DoclibDoc]) extends LazyLogging {
 

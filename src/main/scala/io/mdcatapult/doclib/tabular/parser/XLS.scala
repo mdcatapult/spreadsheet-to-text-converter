@@ -50,7 +50,7 @@ class XLS(file: File) extends Parser with HSSFListener {
     */
   def processRecord(record: Record): Unit = {
     val (rowNum, colNum): (Int, Int) = record match {
-      case r: LastCellOfRowDummyRecord ⇒
+      case _: LastCellOfRowDummyRecord ⇒
         if (minColumns.getOrElse(0) > 0) {
           for (_ ← columnIndex until minColumns.get) {
             sheetContents.append(fieldDelimiter)
@@ -64,11 +64,11 @@ class XLS(file: File) extends Parser with HSSFListener {
         if (lineDelimiter.isDefined) sheetContents.append(lineDelimiter.get)
         (rowIndex+1,0)
 
-      case r: MissingCellDummyRecord ⇒
+      case _: MissingCellDummyRecord ⇒
         sheetContents.append(fieldDelimiter)
         (rowIndex,columnIndex+1)
 
-      case r: MissingRowDummyRecord ⇒
+      case _: MissingRowDummyRecord ⇒
         for (_ ← 0 until minColumns.get) {
           sheetContents.append(fieldDelimiter)
         }
@@ -91,7 +91,7 @@ class XLS(file: File) extends Parser with HSSFListener {
           (rowIndex, columnIndex)
         }
 
-      case r: EOFRecord ⇒
+      case _: EOFRecord ⇒
         if (sheetIndex >= 0)
           output += Sheet(sheetIndex, boundRecords(sheetIndex).getSheetname, sheetContents.toString())
         (0,0)
@@ -111,14 +111,14 @@ class XLS(file: File) extends Parser with HSSFListener {
       case r: StringRecord ⇒
         // follow on from FormulaRecord
         sheetContents.append(stringDelimiter)
-        sheetContents.append(r.getString)
+        sheetContents.append(escapeQuotes(r.getString))
         sheetContents.append(stringDelimiter)
         (rowIndex, columnIndex)
 
       case r: LabelRecord ⇒
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         sheetContents.append(stringDelimiter)
-        sheetContents.append(r.getValue)
+        sheetContents.append(escapeQuotes(r.getValue))
         sheetContents.append(stringDelimiter)
         (r.getRow, r.getColumn)
 
@@ -126,7 +126,7 @@ class XLS(file: File) extends Parser with HSSFListener {
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         if (sstRecord.isDefined) {
           sheetContents.append(stringDelimiter)
-          sheetContents.append(sstRecord.get.getString(r.getSSTIndex).toString)
+          sheetContents.append(escapeQuotes(sstRecord.get.getString(r.getSSTIndex).toString))
           sheetContents.append(stringDelimiter)
         }
         (r.getRow, r.getColumn)
