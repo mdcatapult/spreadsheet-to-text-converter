@@ -6,7 +6,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 class DocumentSpec extends AnyFlatSpec {
 
-  val expected = "\"Row1Cell1\"\t\"Row1Cell2\"\t\"Row1Cell3\"\n\"Row2Cell1\"\t\t\"Row2Cell3\"\n\n\"FORMULA\"\t3\t2.1\n\"Cell with \ufffe\"quoted\ufffe\" text\"\n"
+  val expected = "\"Row1Cell1\"\t\"Row1Cell2\"\t\"Row1Cell3\"\n\"Row2Cell1\"\t\t\"Row2Cell3\"\n\n\"FORMULA\"\t3\t2.1\n\"Cell with \\\"quoted\\\" text\"\n"
 
   val odsSheet0 = "Row1Cell1\tRow1Cell2\tRow1Cell3\nRow2Cell1\t\tRow2Cell3\nFORMULA\t3.0\t2.1\nCell with \"quoted\" text\t\t\n"
   val odsSheet1 = "Cell1Row1\tCell2Row1\tCell3Row1\nCell1Row2\tCell2Row2\tCell3Row2\nFORMULA\t6.0\t\n"
