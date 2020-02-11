@@ -1,4 +1,4 @@
-package io.mdcatapult.doclib.handlers
+package io.mdcatapult.doclib.tabular.handlers
 
 import io.mdcatapult.doclib.tabular.parser.escapeQuotes
 import org.apache.poi.ss.util.{CellAddress, CellReference}
