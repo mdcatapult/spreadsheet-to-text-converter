@@ -2,6 +2,6 @@ package io.mdcatapult.doclib.tabular
 
 package object parser {
 
-  def escapeQuotes(text: String): String =
-    text.replaceAllLiterally("\"", "\uFFFE\"")
+  def escape(text: String, target: String = "\"", escape: String = """\"""): String =
+    text.replaceAllLiterally(target, s"$escape$target")
 }

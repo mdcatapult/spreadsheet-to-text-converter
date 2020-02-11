@@ -111,14 +111,14 @@ class XLS(file: File) extends Parser with HSSFListener {
       case r: StringRecord ⇒
         // follow on from FormulaRecord
         sheetContents.append(stringDelimiter)
-        sheetContents.append(escapeQuotes(r.getString))
+        sheetContents.append(escape(r.getString))
         sheetContents.append(stringDelimiter)
         (rowIndex, columnIndex)
 
       case r: LabelRecord ⇒
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         sheetContents.append(stringDelimiter)
-        sheetContents.append(escapeQuotes(r.getValue))
+        sheetContents.append(escape(r.getValue))
         sheetContents.append(stringDelimiter)
         (r.getRow, r.getColumn)
 
@@ -126,7 +126,7 @@ class XLS(file: File) extends Parser with HSSFListener {
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         if (sstRecord.isDefined) {
           sheetContents.append(stringDelimiter)
-          sheetContents.append(escapeQuotes(sstRecord.get.getString(r.getSSTIndex).toString))
+          sheetContents.append(escape(sstRecord.get.getString(r.getSSTIndex).toString))
           sheetContents.append(stringDelimiter)
         }
         (r.getRow, r.getColumn)

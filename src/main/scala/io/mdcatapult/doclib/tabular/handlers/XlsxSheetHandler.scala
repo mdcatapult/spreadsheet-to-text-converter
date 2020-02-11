@@ -1,6 +1,6 @@
 package io.mdcatapult.doclib.tabular.handlers
 
-import io.mdcatapult.doclib.tabular.parser.escapeQuotes
+import io.mdcatapult.doclib.tabular.parser.escape
 import org.apache.poi.ss.util.{CellAddress, CellReference}
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler
 import org.apache.poi.xssf.usermodel.XSSFComment
@@ -76,7 +76,7 @@ class XlsxSheetHandler(output: StringBuilder,
 
   private def appendText(formattedValue: String): Unit = {
     output.append(stringDelimiter)
-    output.append(escapeQuotes(formattedValue))
+    output.append(escape(formattedValue))
     output.append(stringDelimiter)
   }
 
