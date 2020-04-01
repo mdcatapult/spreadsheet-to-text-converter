@@ -36,7 +36,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   akka.loggers = ["akka.testkit.TestEventListener"]
   """))) with ImplicitSender with AnyFlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
 
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" → 1, "/test.xls" → 2, "/test.xlsx" → 2, "test.ods" → 2)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
   implicit val config: Config = ConfigFactory.parseString(
     """
@@ -118,7 +118,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   val spreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
 
   "A spreadsheet can be converted" should "be validated" in {
-    sheets.foreach(x ⇒ {
+    sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
         _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -134,7 +134,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   }
 
   "A converted sheet" should "be in local temp dir" in {
-    sheets.foreach(x ⇒ {
+    sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
         _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -146,7 +146,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       )
       val res = spreadsheetHandler.process(doc)
       val absPath: ScalaFile = config.getString("doclib.root")/""
-      res.map(sheet ⇒ assert(!sheet.startsWith(absPath.toString())))
+      res.map(sheet => assert(!sheet.startsWith(absPath.toString())))
     })
   }
 
