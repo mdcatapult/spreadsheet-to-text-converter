@@ -59,7 +59,10 @@ lazy val root = (project in file("."))
       "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiVersion,
       "com.github.miachm.sods" % "SODS" % "1.2.2",
-    ).map(_.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")),
+    ).map(
+      _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
+        .exclude(org = "com.google.protobuf", name = "protobuf-java")
+    ),
   )
   .settings(
     assemblyJarName := "consumer.jar",
