@@ -27,15 +27,15 @@ class XlsxSheetHandler(output: StringBuilder,
   }
 
   private def outputMissingRows(number: Int): Unit =
-    for (_ ← 0 until number) {
-      for (_ ← 0 until minColumns.get) {
+    for (_ <- 0 until number) {
+      for (_ <- 0 until minColumns.get) {
         output.append(fieldDelimiter)
       }
       output.append(lineDelimiter.get)
     }
 
   def endRow(rowNum: Int): Unit = {
-    for (_ ← currentCol until minColumns.get) {
+    for (_ <- currentCol until minColumns.get) {
       output.append(fieldDelimiter)
     }
     output.append(lineDelimiter.get)
@@ -52,7 +52,7 @@ class XlsxSheetHandler(output: StringBuilder,
         cellReference
     ).getCol
     val missedCols = thisCol - currentCol - 1
-    for (_ ← 0 until missedCols) {
+    for (_ <- 0 until missedCols) {
       output.append(fieldDelimiter)
     }
     currentCol = thisCol
@@ -60,16 +60,16 @@ class XlsxSheetHandler(output: StringBuilder,
     val isDouble = """([0-9]+.[0-9]*)""".r
 
     Try(formattedValue match {
-      case isInteger(_) ⇒  output.append(formattedValue.toInt)
-      case isDouble(_) ⇒ output.append(formattedValue.toDouble)
-      case _ ⇒
+      case isInteger(_) =>  output.append(formattedValue.toInt)
+      case isDouble(_) => output.append(formattedValue.toDouble)
+      case _ =>
         appendText(formattedValue)
     }) match {
-      case Success(_) ⇒ // do nothing
-      case Failure(ex) ⇒ ex match {
-        case _: NumberFormatException ⇒
+      case Success(_) => // do nothing
+      case Failure(ex) => ex match {
+        case _: NumberFormatException =>
           appendText(formattedValue)
-        case e ⇒ throw e
+        case e => throw e
       }
     }
   }
