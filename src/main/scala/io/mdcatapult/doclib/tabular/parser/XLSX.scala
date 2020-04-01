@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.tabular.parser
 import java.io.File
 
 import io.mdcatapult.doclib.tabular.Sheet
-import io.mdcatapult.doclib.handlers.XlsxSheetHandler
+import io.mdcatapult.doclib.tabular.handlers.XlsxSheetHandler
 import org.apache.poi.ooxml.util.SAXHelper
 import org.apache.poi.openxml4j.opc._
 import org.apache.poi.ss.usermodel.DataFormatter
@@ -12,7 +12,7 @@ import org.apache.poi.xssf.eventusermodel._
 import org.apache.poi.xssf.model.StylesTable
 import org.xml.sax.InputSource
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class XLSX(file: File) extends Parser {
 
@@ -23,7 +23,7 @@ class XLSX(file: File) extends Parser {
 
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n")): List[Sheet] = {
     val it: SheetIterator = reader.getSheetsData.asInstanceOf[SheetIterator]
-    it.asScala.zipWithIndex.map(sh ⇒ {
+    it.asScala.zipWithIndex.map(sh => {
 
       val contents = new StringBuilder()
       val p = SAXHelper.newXMLReader()

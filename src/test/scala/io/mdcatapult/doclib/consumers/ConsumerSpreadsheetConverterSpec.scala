@@ -4,9 +4,8 @@ import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
-import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
+import com.mongodb.async.client.{MongoCollection => JMongoCollection}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
@@ -19,16 +18,13 @@ import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.FlatSpecLike
 import org.scalatest.concurrent.ScalaFutures
-
-import scala.concurrent.ExecutionContextExecutor
-import scala.language.postfixOps
+import org.scalatest.flatspec.AnyFlatSpecLike
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with FlatSpecLike with Matchers with MockFactory with ScalaFutures {
+  """))) with ImplicitSender with AnyFlatSpecLike with Matchers with MockFactory with ScalaFutures {
 
   // Note: we are going to overwrite this in a later test so var not val.
   implicit var config: Config = ConfigFactory.parseString(
@@ -66,13 +62,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |}
     """.stripMargin)
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
-  implicit val executor: ExecutionContextExecutor = system.getDispatcher
+  import system.dispatcher
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = mock[JMongoCollection[DoclibDoc]]
   implicit val collection: MongoCollection[DoclibDoc] = MongoCollection[DoclibDoc](wrappedCollection)
-  val codecs: CodecRegistry = MongoCodecs.get
 
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
@@ -102,13 +96,12 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     }
   }
 
-  val downstream = mock[QP]
-  val upstream = mock[QD]
-  val supervisor = mock[QS]
+  private val downstream = mock[QP]
+  private val supervisor = mock[QS]
 
   val spreadsheetHandler = new SpreadsheetHandler(downstream, supervisor)
 
-  val validDoc = DoclibDoc(
+  private val validDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
     source = "local/resources/test.csv",
     hash = "01234567890",
@@ -117,7 +110,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     updated = LocalDateTime.parse("2019-10-01T12:00:01")
   )
 
-  val invalidDoc = DoclibDoc(
+  private val invalidDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
     source = "local/resources/test.csv",
     hash = "01234567890",

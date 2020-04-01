@@ -50,9 +50,9 @@ class XLS(file: File) extends Parser with HSSFListener {
     */
   def processRecord(record: Record): Unit = {
     val (rowNum, colNum): (Int, Int) = record match {
-      case r: LastCellOfRowDummyRecord ⇒
+      case _: LastCellOfRowDummyRecord =>
         if (minColumns.getOrElse(0) > 0) {
-          for (_ ← columnIndex until minColumns.get) {
+          for (_ <- columnIndex until minColumns.get) {
             sheetContents.append(fieldDelimiter)
           }
         } else {
@@ -64,25 +64,25 @@ class XLS(file: File) extends Parser with HSSFListener {
         if (lineDelimiter.isDefined) sheetContents.append(lineDelimiter.get)
         (rowIndex+1,0)
 
-      case r: MissingCellDummyRecord ⇒
+      case _: MissingCellDummyRecord =>
         sheetContents.append(fieldDelimiter)
         (rowIndex,columnIndex+1)
 
-      case r: MissingRowDummyRecord ⇒
-        for (_ ← 0 until minColumns.get) {
+      case _: MissingRowDummyRecord =>
+        for (_ <- 0 until minColumns.get) {
           sheetContents.append(fieldDelimiter)
         }
         if (lineDelimiter.isDefined) sheetContents.append(lineDelimiter.get)
         (rowIndex+1,0)
-      case r: BoundSheetRecord ⇒
+      case r: BoundSheetRecord =>
         boundRecords += r
         (rowIndex,columnIndex)
 
-      case r: SSTRecord ⇒
+      case r: SSTRecord =>
         sstRecord = Some(r)
         (rowIndex, columnIndex)
 
-      case r: BOFRecord ⇒
+      case r: BOFRecord =>
         if (r.getType == BOFRecord.TYPE_WORKSHEET) {
           sheetIndex = sheetIndex + 1
           sheetContents = new StringBuilder()
@@ -91,60 +91,60 @@ class XLS(file: File) extends Parser with HSSFListener {
           (rowIndex, columnIndex)
         }
 
-      case r: EOFRecord ⇒
+      case _: EOFRecord =>
         if (sheetIndex >= 0)
           output += Sheet(sheetIndex, boundRecords(sheetIndex).getSheetname, sheetContents.toString())
         (0,0)
 
-      case r: BlankRecord ⇒
+      case r: BlankRecord =>
         if (r.getColumn > 0) sheetContents.append(fieldDelimiter)
         (r.getRow, r.getColumn)
 
-      case r: BoolErrRecord ⇒
+      case r: BoolErrRecord =>
         (r.getRow, r.getColumn)
-      case r: FormulaRecord ⇒
+      case r: FormulaRecord =>
         if (r.getColumn > 0) sheetContents.append(fieldDelimiter)
         if (!r.hasCachedResultString) {
           sheetContents.append(formatListener.formatNumberDateCell(r))
         }
         (r.getRow, r.getColumn)
-      case r: StringRecord ⇒
+      case r: StringRecord =>
         // follow on from FormulaRecord
         sheetContents.append(stringDelimiter)
-        sheetContents.append(r.getString)
+        sheetContents.append(escape(r.getString))
         sheetContents.append(stringDelimiter)
         (rowIndex, columnIndex)
 
-      case r: LabelRecord ⇒
+      case r: LabelRecord =>
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         sheetContents.append(stringDelimiter)
-        sheetContents.append(r.getValue)
+        sheetContents.append(escape(r.getValue))
         sheetContents.append(stringDelimiter)
         (r.getRow, r.getColumn)
 
-      case r: LabelSSTRecord ⇒
+      case r: LabelSSTRecord =>
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         if (sstRecord.isDefined) {
           sheetContents.append(stringDelimiter)
-          sheetContents.append(sstRecord.get.getString(r.getSSTIndex).toString)
+          sheetContents.append(escape(sstRecord.get.getString(r.getSSTIndex).toString))
           sheetContents.append(stringDelimiter)
         }
         (r.getRow, r.getColumn)
 
-      case r: NoteRecord ⇒
+      case r: NoteRecord =>
         sheetContents.append(fieldDelimiter)
         (r.getRow, r.getColumn)
 
-      case r: NumberRecord ⇒
+      case r: NumberRecord =>
         if (r.getColumn > 0 ) sheetContents.append(fieldDelimiter)
         sheetContents.append(formatListener.formatNumberDateCell(r))
         (r.getRow, r.getColumn)
 
-      case r: RKRecord ⇒
+      case r: RKRecord =>
         sheetContents.append(fieldDelimiter)
         (r.getRow, r.getColumn)
-      //          case RowRecord.sid ⇒
-      case _ ⇒ (rowIndex, columnIndex)
+      //          case RowRecord.sid =>
+      case _ => (rowIndex, columnIndex)
 
     }
     columnIndex = colNum

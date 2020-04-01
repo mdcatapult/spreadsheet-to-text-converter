@@ -5,11 +5,10 @@ import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
 import better.files.Dsl.pwd
-import better.files.{File ⇒ ScalaFile, _}
-import com.mongodb.async.client.{MongoCollection ⇒ JMongoCollection}
+import better.files.{File => ScalaFile, _}
+import com.mongodb.async.client.{MongoCollection => JMongoCollection}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
@@ -25,18 +24,19 @@ import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 import org.mongodb.scala.{MongoCollection, SingleObservable}
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
+import org.scalatest.flatspec.AnyFlatSpecLike
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
 
 class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with FlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
+  """))) with ImplicitSender with AnyFlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
 
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" → 1, "/test.xls" → 2, "/test.xlsx" → 2, "test.ods" → 2)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
   implicit val config: Config = ConfigFactory.parseString(
     """
@@ -63,8 +63,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       |}
     """.stripMargin)
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
-  implicit val executor: ExecutionContextExecutor = system.getDispatcher
+  import system.dispatcher
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
@@ -113,13 +112,13 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     }
   }
 
-  val downstream = mock[QP]
-  val upstream = mock[QS]
+  private val downstream = mock[QP]
+  private val upstream = mock[QS]
 
   val spreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
 
   "A spreadsheet can be converted" should "be validated" in {
-    sheets.foreach(x ⇒ {
+    sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
         _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -135,7 +134,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   }
 
   "A converted sheet" should "be in local temp dir" in {
-    sheets.foreach(x ⇒ {
+    sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
         _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -147,7 +146,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       )
       val res = spreadsheetHandler.process(doc)
       val absPath: ScalaFile = config.getString("doclib.root")/""
-      res.map(sheet ⇒ assert(!sheet.startsWith(absPath.toString())))
+      res.map(sheet => assert(!sheet.startsWith(absPath.toString())))
     })
   }
 
@@ -156,8 +155,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     // Just testing that the persist attempts to update the collection using the fake mongodb implementation
     val result = Await.result(spreadsheetHandler.persist(id.toString, combine(
       set("derivatives", List[Derivative]()))
-    ), 5 seconds)
-    assert(result.get.wasAcknowledged == true)
+    ), 5.seconds)
+    assert(result.get.wasAcknowledged)
     assert(result.get.getModifiedCount == 1)
     // The mock class has "45678" so it confirms that this was called
     assert(result.get.getUpsertedId.asString.getValue == "45678")
@@ -166,7 +165,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   override def afterAll(): Unit = {
     // These may or may not exist but are all removed anyway
-    deleteDirectories(List((pwd/"test-assets"/"ingress")))
+    deleteDirectories(List(pwd/"test-assets"/"ingress"))
   }
 
 }

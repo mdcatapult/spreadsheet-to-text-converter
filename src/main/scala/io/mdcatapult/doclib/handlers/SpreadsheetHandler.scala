@@ -3,8 +3,6 @@ package io.mdcatapult.doclib.handlers
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Paths
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import better.files.{File => ScalaFile, _}
 import cats.data.OptionT
 import cats.implicits._
@@ -25,14 +23,11 @@ import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
-import scala.language.postfixOps
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
-                        (implicit ac: ActorSystem,
-                         materializer: ActorMaterializer,
-                         ex: ExecutionContextExecutor,
+                        (implicit ex: ExecutionContext,
                          config: Config,
                          collection: MongoCollection[DoclibDoc]) extends LazyLogging {
 
@@ -54,34 +49,34 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
-      doc ← OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
-      started: UpdateResult ← OptionT(flags.start(doc))
-      _ ← OptionT.fromOption[Future](validateMimetype(doc))
-      paths: List[String] ← OptionT.pure[Future](process(doc))
+      doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
+      started: UpdateResult <- OptionT(flags.start(doc))
+      _ <- OptionT.fromOption[Future](validateMimetype(doc))
+      paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
-      derivatives ← OptionT.pure[Future](mergeDerivatives(doc, paths))
-      _ ← OptionT(persist(msg.id, combine(
+      derivatives <- OptionT.pure[Future](mergeDerivatives(doc, paths))
+      _ <- OptionT(persist(msg.id, combine(
         set("derivatives", derivatives))).andThen({
-        case Success(_) ⇒ paths.foreach(path ⇒ enqueue(path, doc))
-        case Failure(e) ⇒ throw e
+        case Success(_) => paths.foreach(path => enqueue(path, doc))
+        case Failure(e) => throw e
       })
       )
-      _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
+      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
     } yield (paths, doc)).value.andThen({
-      case Success(result) ⇒ result match {
-        case Some(r) ⇒
+      case Success(result) => result match {
+        case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
           logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
-        case None ⇒ // do nothing?
+        case None => () // do nothing?
       }
       // Wait 10 seconds then fail
-      case Failure(e: DoclibDocException) ⇒ flags.error(e.getDoc, noCheck = true)
-      case Failure(_) ⇒ Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), 10 seconds)) match {
-        case Success(value: Option[DoclibDoc]) ⇒ value match {
-          case Some(aDoc) ⇒ flags.error(aDoc, noCheck = true)
-          case _ ⇒ // captured by error handling
+      case Failure(e: DoclibDocException) => flags.error(e.getDoc, noCheck = true)
+      case Failure(_) => Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), 10.seconds)) match {
+        case Success(value: Option[DoclibDoc]) => value match {
+          case Some(aDoc) => flags.error(aDoc, noCheck = true)
+          case _ => () // captured by error handling
         }
-        case Failure(_) ⇒ // Error will bubble up
+        case Failure(_) => () // Error will bubble up
       }
     })
   }
@@ -176,20 +171,20 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     val targetRoot = base.replaceAll("/+$", "")
     val regex = """(.*)/(.*)$""".r
     source match {
-      case regex(path, file) ⇒
+      case regex(path, file) =>
         val c = commonPath(List(targetRoot, path))
         val targetPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
         Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}-$file").toString
-      case _ ⇒ source
+      case _ => source
     }
   }
 
   def scrub(path: String):String  = path match {
-    case path if path.startsWith(config.getString("doclib.local.target-dir")) ⇒
+    case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
       scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("convert.to.path"))  ⇒
+    case path if path.startsWith(config.getString("convert.to.path"))  =>
       scrub(path.replaceFirst(s"^${config.getString("convert.to.path")}/*", ""))
-    case _ ⇒ path
+    case _ => path
   }
 
   /**
@@ -203,7 +198,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     val d = new TabularDoc(Paths.get(sourceAbsPath.toString()))
     d.convertTo(config.getString("convert.format"))
       .filter(_.content.length > 0)
-      .map(s ⇒ saveToFS(s, getAbsPath(targetPath)))
+      .map(s => saveToFS(s, getAbsPath(targetPath)))
       .filter(_.path.isDefined)
       .map(_.path.get)
       .map(sheet => {

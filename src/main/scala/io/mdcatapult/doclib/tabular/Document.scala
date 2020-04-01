@@ -18,11 +18,11 @@ class Document(path: Path) {
   def getParser: Parser = {
     try {
       ScalaFile(path.toString).extension match {
-        case Some(".csv") ⇒ new CSV(file)
-        case Some(".xls") ⇒ new XLS(file)
-        case Some(".xlsx") ⇒ new XLSX(file)
-        case Some(".ods") ⇒ new ODF(file)
-        case _ ⇒ new Default(file)
+        case Some(".csv") => new CSV(file)
+        case Some(".xls") => new XLS(file)
+        case Some(".xlsx") => new XLSX(file)
+        case Some(".ods") => new ODF(file)
+        case _ => new Default(file)
       }
     } catch {
       // A catch in case it's an Office 2007+ XML with ".xls" extension ie use XSSF.
@@ -32,8 +32,8 @@ class Document(path: Path) {
   }
 
   def convertTo(format: String): List[TabSheet] = format match {
-    case "tsv" ⇒ parser.parse("\t", "\"")
-    case "csv" ⇒ parser.parse(",", "\"")
-    case _ ⇒ throw new Exception(f"Format $format not currently supported")
+    case "tsv" => parser.parse("\t", "\"")
+    case "csv" => parser.parse(",", "\"")
+    case _ => throw new Exception(f"Format $format not currently supported")
   }
 }
