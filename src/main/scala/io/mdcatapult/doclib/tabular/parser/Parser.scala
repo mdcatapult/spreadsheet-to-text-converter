@@ -2,7 +2,7 @@ package io.mdcatapult.doclib.tabular.parser
 
 import io.mdcatapult.doclib.tabular.Sheet
 
-abstract class Parser {
+trait Parser {
 
   /**
     * Abstract definition to take appropriate delimiters and convert the supplied document into a list of "sheets"
