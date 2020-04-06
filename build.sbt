@@ -9,7 +9,7 @@ lazy val mongoVersion = "2.7.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val apachePoiVersion = "4.1.2"
 lazy val playTestVersion = "4.0.0"
-lazy val doclibCommonVersion = "0.0.56"
+lazy val doclibCommonVersion = "0.0.58"
 
 val meta = """META.INF(.)*""".r
 
@@ -29,6 +29,7 @@ lazy val root = (project in file("."))
       "-feature",
       "-Xlint",
     ),
+    useCoursier      := false,
     resolvers         ++= Seq(
       "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",

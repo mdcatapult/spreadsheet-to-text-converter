@@ -31,6 +31,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     """
       |doclib {
       |  root: "test-assets"
+      |  flag: "tabular.totsv"
       |  overwriteDerivatives: false
       |  local {
       |    target-dir: "local"
@@ -191,6 +192,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       """
         |doclib {
         |  root: "test-assets"
+        |  flag: "tabular.totsv"
         |  overwriteDerivatives: true
         |  local {
         |    target-dir: "local"
