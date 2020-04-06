@@ -42,6 +42,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     """
       |doclib {
       |  root: "test-assets"
+      |  flag: "tabular.totsv"
       |  overwriteDerivatives: false
       |  local {
       |    target-dir: "local"
@@ -67,7 +68,6 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = stub[JMongoCollection[DoclibDoc]]
-//  implicit val collection: MongoCollection[DoclibDoc] = MongoCollection[DoclibDoc](wrappedCollection)
 
   // Fake class for mongo db since mocking it is soooooooooo hard
   class MI extends MongoCollection[DoclibDoc](wrappedCollection) {

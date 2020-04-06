@@ -11,7 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc, Sheet => TabSheet}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
@@ -30,6 +30,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
                         (implicit ex: ExecutionContext,
                          config: Config,
                          collection: MongoCollection[DoclibDoc]) extends LazyLogging {
+
+  private val docExtractor = DoclibDocExtractor()
 
   case class MimetypeNotAllowed(doc: DoclibDoc,
                                 cause: Throwable = None.orNull)
@@ -50,16 +52,22 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
+      if !docExtractor.isRunRecently(doc)
       started: UpdateResult <- OptionT(flags.start(doc))
       _ <- OptionT.fromOption[Future](validateMimetype(doc))
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](mergeDerivatives(doc, paths))
-      _ <- OptionT(persist(msg.id, combine(
-        set("derivatives", derivatives))).andThen({
-        case Success(_) => paths.foreach(path => enqueue(path, doc))
-        case Failure(e) => throw e
-      })
+      _ <- OptionT(
+        persist(
+          msg.id,
+          combine(
+            set("derivatives", derivatives)
+          )
+        ).andThen({
+          case Success(_) => paths.foreach(path => enqueue(path, doc))
+          case Failure(e) => throw e
+        })
       )
       _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
     } yield (paths, doc)).value.andThen({
