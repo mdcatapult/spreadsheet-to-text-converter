@@ -131,10 +131,18 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     val filename = sheet.name.replaceAll(" ", "_").replaceAll("[^0-9a-zA-Z_-]", "-")
     val target = new File(s"$targetPath/${sheet.index}_$filename.${config.getString("convert.format")}")
     target.getParentFile.mkdirs()
-    val w = new BufferedWriter(new FileWriter(target))
-    w.write(sheet.content)
-    w.close()
-    sheet.copy(path=Some(target.getAbsolutePath))
+    val fileWriter = new FileWriter(target)
+    try {
+      val w = new BufferedWriter(fileWriter)
+      try {
+        w.write(sheet.content)
+      } finally {
+        w.close()
+      }
+      sheet.copy(path = Some(target.getAbsolutePath))
+    } finally {
+      fileWriter.close()
+    }
   }
 
   /**

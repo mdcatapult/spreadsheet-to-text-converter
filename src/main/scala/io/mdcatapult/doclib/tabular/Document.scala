@@ -12,10 +12,9 @@ import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
   * @param path Path
   */
 class Document(path: Path) {
-  val file: File = new File(path.toUri)
-  lazy val parser: Parser = getParser
+  private val file: File = new File(path.toUri)
 
-  def getParser: Parser = {
+  lazy val parser: Parser =
     try {
       ScalaFile(path.toString).extension match {
         case Some(".csv") => new CSV(file)
@@ -29,7 +28,6 @@ class Document(path: Path) {
       // TODO something better
       case _: Exception => new XLSX(file)
     }
-  }
 
   def convertTo(format: String): List[TabSheet] = format match {
     case "tsv" => parser.parse("\t", "\"")
