@@ -29,6 +29,7 @@ lazy val root = (project in file("."))
       "-feature",
       "-Xlint",
     ),
+    useCoursier      := false,
     resolvers         ++= Seq(
       "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
