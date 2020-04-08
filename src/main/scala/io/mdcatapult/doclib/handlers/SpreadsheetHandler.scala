@@ -108,7 +108,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
         """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
       )
 
-    if (knownMimetypes.exists(_.findFirstIn(doc.mimetype).isDefined))
+    if (knownMimetypes.exists(_.matches(doc.mimetype)))
       Some(true)
     else
       throw MimetypeNotAllowed(doc)
