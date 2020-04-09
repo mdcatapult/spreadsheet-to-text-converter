@@ -5,6 +5,4 @@ case class Sheet(
                 name: String,
                 content: String,
                 path: Option[String] = None
-                ) {
-
-}
+                )
