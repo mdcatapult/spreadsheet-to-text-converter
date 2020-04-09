@@ -14,29 +14,22 @@ import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
 class Document(path: Path) {
   private val file: File = new File(path.toUri)
 
+  private val extension = ScalaFile(path.toString).extension
 
-  lazy val parser: Parser = {
-    val extension = ScalaFile(path.toString).extension
-
-    try {
-      extension match {
-        case Some(".csv") => new CSV(file)
-        case Some(".xls") => new XLS(file)
-        case Some(".xlsx") => new XLSX(file)
-        case Some(".ods") => new ODF(file)
-        case _ => new Default(file)
-      }
-    } catch {
-      // A catch in case it's an Office 2007+ XML with ".xls" extension ie use XSSF.
-      // TODO something better
-      case x: Exception =>
-        extension match {
-          case Some(".xls") => new XLSX(file)
-          case Some(".xlsx") => new XLS(file)
-          case _ => throw x
+  lazy val parser: Parser =
+    extension match {
+      case Some(".xls") =>
+        try {
+          new XLS(file)
+        } catch {
+          case _: Exception =>
+            new XLSX(file)
         }
+      case Some(".xlsx") => new XLSX(file)
+      case Some(".csv") => new CSV(file)
+      case Some(".ods") => new ODF(file)
+      case _ => new Default(file)
     }
-  }
 
   def convertTo(format: String): List[TabSheet] = format match {
     case "tsv" => parser.parse("\t", "\"")
