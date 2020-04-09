@@ -16,14 +16,13 @@ class Document(path: Path) {
 
   private val extension = ScalaFile(path.toString).extension
 
-  lazy val parser: Parser =
+  private val expectedParser =
     extension match {
       case Some(".xls") =>
         try {
           new XLS(file)
         } catch {
-          case _: Exception =>
-            new XLSX(file)
+          case _: Exception => new XLSX(file)
         }
       case Some(".xlsx") => new XLSX(file)
       case Some(".csv") => new CSV(file)
@@ -31,9 +30,34 @@ class Document(path: Path) {
       case _ => new Default(file)
     }
 
+  private def misnamedParser =
+    extension match {
+      case Some(".xls") => new XLSX(file)
+      case Some(".xlsx") => new XLS(file)
+      case _ => new CSV(file)
+    }
+
+  private val nestedParser =
+    new Parser {
+      override def parse(
+                          fieldDelimiter: String,
+                          stringDelimiter: String,
+                          lineDelimiter: Option[String]): List[TabSheet] =
+        try {
+          expectedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
+        } catch {
+          case x: Exception =>
+            try {
+              misnamedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
+            } catch {
+              case _: Exception => throw x
+            }
+        }
+    }
+
   def convertTo(format: String): List[TabSheet] = format match {
-    case "tsv" => parser.parse("\t", "\"")
-    case "csv" => parser.parse(",", "\"")
+    case "tsv" => nestedParser.parse(fieldDelimiter = "\t", stringDelimiter = "\"")
+    case "csv" => nestedParser.parse(fieldDelimiter = ",", stringDelimiter = "\"")
     case _ => throw new Exception(f"Format $format not currently supported")
   }
 }
