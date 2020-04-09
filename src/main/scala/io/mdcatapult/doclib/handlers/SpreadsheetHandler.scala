@@ -33,6 +33,13 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
 
   private val docExtractor = DoclibDocExtractor()
 
+  private val overwriteDerivatives = config.getBoolean("doclib.overwriteDerivatives")
+  private val convertToFormat = config.getString("convert.format")
+  private val doclibRoot = config.getString("doclib.root")
+  private val tempDir = config.getString("doclib.local.temp-dir")
+  private val localTargetDir = config.getString("doclib.local.target-dir")
+  private val convertToPath = config.getString("convert.to.path")
+
   case class MimetypeNotAllowed(doc: DoclibDoc,
                                 cause: Throwable = None.orNull)
     extends DoclibDocException(
@@ -40,7 +47,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       f"Document: ${doc._id.toHexString} - Mimetype '${doc.mimetype}' not allowed'",
       cause)
 
-  lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
+  lazy val flags = new DoclibFlags(docExtractor.defaultFlagKey)
 
   /**
    * default handler for messages
@@ -50,6 +57,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    */
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
+
     (for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
       if !docExtractor.isRunRecently(doc)
@@ -90,16 +98,20 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-    if (List(
-      """application/vnd\.lotus.*""".r,
-      """application/vnd\.ms-excel.*""".r,
-      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
-      """application/vnd\.stardivision.calc""".r,
-      """application/vnd\.sun\.xml\.calc.*""".r,
-      """application/vnd\.oasis\.opendocument\.spreadsheet""".r
-    ).count(_.findFirstIn(doc.mimetype).isDefined) > 0) {
+    val knownMimetypes =
+      Seq(
+        """application/vnd\.lotus.*""".r,
+        """application/vnd\.ms-excel.*""".r,
+        """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
+        """application/vnd\.stardivision.calc""".r,
+        """application/vnd\.sun\.xml\.calc.*""".r,
+        """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
+      )
+
+    if (knownMimetypes.exists(_.matches(doc.mimetype)))
       Some(true)
-    } else throw MimetypeNotAllowed(doc)
+    else
+      throw MimetypeNotAllowed(doc)
   }
 
   /**
@@ -111,6 +123,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   def enqueue(source: String, doc: DoclibDoc): String = {
     // Let prefetch know that it is a spreadsheet derivative
     val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "spreadsheet"))
+
     downstream.send(PrefetchMsg(
       source=source,
       tags=doc.tags,
@@ -125,6 +138,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
           MetaString("_id", doc._id.toString)))))
       ),
     ))
+
     source
   }
 
@@ -137,9 +151,10 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    */
   def saveToFS(sheet: TabSheet, targetPath: String): TabSheet = {
     val filename = sheet.name.replaceAll(" ", "_").replaceAll("[^0-9a-zA-Z_-]", "-")
-    val target = new File(s"$targetPath/${sheet.index}_$filename.${config.getString("convert.format")}")
+    val target = new File(s"$targetPath/${sheet.index}_$filename.$convertToFormat}")
     target.getParentFile.mkdirs()
     val fileWriter = new FileWriter(target)
+
     try {
       val w = new BufferedWriter(fileWriter)
       try {
@@ -161,12 +176,20 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   def commonPath(paths: List[String]): String = {
     val SEP = "/"
     val BOUNDARY_REGEX = s"(?=[$SEP])(?<=[^$SEP])|(?=[^$SEP])(?<=[$SEP])"
-    def common(a: List[String], b: List[String]): List[String] = (a, b) match {
-      case (aa :: as, bb :: bs) if aa equals bb => aa :: common(as, bs)
-      case _ => Nil
-    }
-    if (paths.length < 2) paths.headOption.getOrElse("")
-    else paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+
+    def common(a: List[String], b: List[String]): List[String] =
+      (a, b) match {
+        case (aa :: as, bb :: bs) if aa equals bb => aa :: common(as, bs)
+        case _ => Nil
+      }
+
+    if (paths.length < 2)
+      paths.headOption.getOrElse("")
+    else
+      paths
+        .map(_.split(BOUNDARY_REGEX).toList)
+        .reduceLeft(common)
+        .mkString
   }
 
   /**
@@ -174,9 +197,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    * @param path path to resolve
    * @return
    */
-  def getAbsPath(path: String): String = {
-    Paths.get(config.getString("doclib.root"), path).toAbsolutePath.toString
-  }
+  def getAbsPath(path: String): String =
+    Paths.get(doclibRoot, path).toAbsolutePath.toString
 
   /**
    * generate new file path maintaining file path from origin but allowing for intersection of common root paths
@@ -186,20 +208,27 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   def getTargetPath(source: String, base: String, prefix: Option[String] = None): String = {
     val targetRoot = base.replaceAll("/+$", "")
     val regex = """(.*)/(.*)$""".r
+
     source match {
       case regex(path, file) =>
         val c = commonPath(List(targetRoot, path))
-        val targetPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
-        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}-$file").toString
+        val targetPath =
+          scrub(
+            path
+              .replaceAll(s"^$c", "")
+              .replaceAll("^/+|/+$", "")
+          )
+
+        Paths.get(tempDir, targetRoot, targetPath, s"${prefix.getOrElse("")}-$file").toString
       case _ => source
     }
   }
 
-  def scrub(path: String):String  = path match {
-    case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
-      scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("convert.to.path"))  =>
-      scrub(path.replaceFirst(s"^${config.getString("convert.to.path")}/*", ""))
+  def scrub(path: String): String = path match {
+    case path if path.startsWith(localTargetDir) =>
+      scrub(path.replaceFirst(s"^$localTargetDir/*", ""))
+    case path if path.startsWith(convertToPath)  =>
+      scrub(path.replaceFirst(s"^$convertToPath/*", ""))
     case _ => path
   }
 
@@ -209,17 +238,18 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    * @return List[String] list of new paths created
    */
   def process(doc: DoclibDoc): List[String] = {
-    val targetPath = getTargetPath(doc.source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    val sourceAbsPath:ScalaFile = config.getString("doclib.root")/doc.source
-    val d = new TabularDoc(Paths.get(sourceAbsPath.toString()))
-    d.convertTo(config.getString("convert.format"))
+    val targetPath = getTargetPath(doc.source, convertToPath, Some("spreadsheet_conv"))
+    val sourceAbsPath:ScalaFile = doclibRoot/doc.source
+    val d = new TabularDoc(Paths.get(sourceAbsPath.toString))
+
+    d.convertTo(convertToFormat)
       .filter(_.content.length > 0)
       .map(s => saveToFS(s, getAbsPath(targetPath)))
       .filter(_.path.isDefined)
       .map(_.path.get)
       .map(sheet => {
-        val root: ScalaFile = config.getString("doclib.root")/""
-        sheet.replaceFirst(s"${root.toString()}/", "")
+        val root: ScalaFile = doclibRoot/""
+        sheet.replaceFirst(s"$root/", "")
       })
   }
 
@@ -231,10 +261,12 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    * @return List[Derivative] unique list of derivatives
    */
   def mergeDerivatives(doc: DoclibDoc, derivatives: List[String]): List[Derivative] = {
-    if (config.getBoolean("doclib.overwriteDerivatives")) {
-      derivatives.map(d => Derivative(`type` = "spreadsheet_conversion", path = d))
+    val newDerivatives = derivatives.map(d => Derivative(`type` = "spreadsheet_conversion", path = d))
+
+    if (overwriteDerivatives) {
+      newDerivatives
     } else {
-      (derivatives.map(d => Derivative(`type` = "spreadsheet_conversion", path = d)) ::: doc.derivatives.getOrElse(List[Derivative]())).distinct
+      (newDerivatives ::: doc.derivatives.getOrElse(Nil)).distinct
     }
   }
 

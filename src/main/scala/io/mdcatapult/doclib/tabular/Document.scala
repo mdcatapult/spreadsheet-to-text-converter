@@ -14,24 +14,50 @@ import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
 class Document(path: Path) {
   private val file: File = new File(path.toUri)
 
-  lazy val parser: Parser =
-    try {
-      ScalaFile(path.toString).extension match {
-        case Some(".csv") => new CSV(file)
-        case Some(".xls") => new XLS(file)
-        case Some(".xlsx") => new XLSX(file)
-        case Some(".ods") => new ODF(file)
-        case _ => new Default(file)
-      }
-    } catch {
-      // A catch in case it's an Office 2007+ XML with ".xls" extension ie use XSSF.
-      // TODO something better
-      case _: Exception => new XLSX(file)
+  private val extension = ScalaFile(path.toString).extension
+
+  private val expectedParser =
+    extension match {
+      case Some(".xls") =>
+        try {
+          new XLS(file)
+        } catch {
+          case _: Exception => new XLSX(file)
+        }
+      case Some(".xlsx") => new XLSX(file)
+      case Some(".csv") => new CSV(file)
+      case Some(".ods") => new ODF(file)
+      case _ => new Default(file)
+    }
+
+  private def misnamedParser =
+    extension match {
+      case Some(".xls") => new XLSX(file)
+      case Some(".xlsx") => new XLS(file)
+      case _ => new CSV(file)
+    }
+
+  private val nestedParser =
+    new Parser {
+      override def parse(
+                          fieldDelimiter: String,
+                          stringDelimiter: String,
+                          lineDelimiter: Option[String]): List[TabSheet] =
+        try {
+          expectedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
+        } catch {
+          case x: Exception =>
+            try {
+              misnamedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
+            } catch {
+              case _: Exception => throw x
+            }
+        }
     }
 
   def convertTo(format: String): List[TabSheet] = format match {
-    case "tsv" => parser.parse("\t", "\"")
-    case "csv" => parser.parse(",", "\"")
+    case "tsv" => nestedParser.parse(fieldDelimiter = "\t", stringDelimiter = "\"")
+    case "csv" => nestedParser.parse(fieldDelimiter = ",", stringDelimiter = "\"")
     case _ => throw new Exception(f"Format $format not currently supported")
   }
 }
