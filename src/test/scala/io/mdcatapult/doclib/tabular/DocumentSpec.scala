@@ -33,12 +33,19 @@ class DocumentSpec extends AnyFlatSpec with Matchers {
     result.head.content should be (expected)
   }
 
-  it should "parse a CSV document" in {
+  it should "parse an ODS document" in {
     val result = convert("/test.ods")
 
     result should have length 2
     result.head.content should be (odsSheet0)
     result(1).content should be (odsSheet1)
+  }
+
+  it should "parse a CSV document" in {
+    val result = convert("/test.csv")
+
+    result should have length 1
+    result.head.content should be (odsSheet0.replaceAll("\t\t\n$", ""))
   }
 
   it should "parse an XLSX document that has an .xls extension" in {
