@@ -6,7 +6,7 @@ import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.DoclibDoc
+import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.{Envelope, Queue}
 import org.mongodb.scala.MongoCollection
@@ -19,6 +19,9 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer("consumer-unarchive
 
     implicit val collection: MongoCollection[DoclibDoc] =
       mongo.database.getCollection(config.getString("mongo.collection"))
+
+    implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
+      mongo.database.getCollection(config.getString("mongo.derivative_collection"))
 
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
       new Queue[T](config.getString(property), consumerName = Some("spreadsheet-converter"))

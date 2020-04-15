@@ -2,6 +2,7 @@ package io.mdcatapult.doclib.handlers
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.Paths
+import java.util.UUID
 
 import better.files.{File => ScalaFile, _}
 import cats.data.OptionT
@@ -11,16 +12,16 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc, Sheet => TabSheet}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
-import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.{Completed, MongoCollection}
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, set}
-import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -29,7 +30,7 @@ import scala.util.{Failure, Success, Try}
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
                         (implicit ex: ExecutionContext,
                          config: Config,
-                         collection: MongoCollection[DoclibDoc]) extends LazyLogging {
+                         collection: MongoCollection[DoclibDoc], derivativesCollection: MongoCollection[ParentChildMapping]) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
 
@@ -66,13 +67,9 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](mergeDerivatives(doc, paths))
-      _ <- OptionT(
-        persist(
-          msg.id,
-          combine(
-            set("derivatives", derivatives)
-          )
-        ).andThen({
+      _ <- OptionT(deleteExistingDerivatives(doc))
+      _ <- OptionT(persist(doc._id, derivatives)
+        .andThen({
           case Success(_) => paths.foreach(path => enqueue(path, doc))
           case Failure(e) => throw e
         })
@@ -136,7 +133,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
           MetaString("db", config.getString("mongo.database")),
           MetaString("collection", config.getString("mongo.collection")),
           MetaString("_id", doc._id.toString)))))
-      ),
+      )
     ))
 
     source
@@ -260,17 +257,22 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    * @param derivatives List[String]
    * @return List[Derivative] unique list of derivatives
    */
-  def mergeDerivatives(doc: DoclibDoc, derivatives: List[String]): List[Derivative] = {
-    val newDerivatives = derivatives.map(d => Derivative(`type` = "spreadsheet_conversion", path = d))
+  def mergeDerivatives(doc: DoclibDoc, derivatives: List[String]): List[ParentChildMapping] =
+    derivatives.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id))
 
-    if (overwriteDerivatives) {
-      newDerivatives
-    } else {
-      (newDerivatives ::: doc.derivatives.getOrElse(Nil)).distinct
-    }
+  def deleteExistingDerivatives(doc: DoclibDoc): Future[Option[DeleteResult]] = {
+    // TODO should we delete the doclib docs as well ie child in the existing mappings
+    //  else we could end up with orphaned docs? You would already get that in the previous
+    //  version. Maybe overwriteDerivatives should default to true.
+    if (overwriteDerivatives)
+      derivativesCollection.deleteMany(equal("parent", doc._id)).toFutureOption()
+    else
+      Future.successful(None)
   }
 
-  def persist(id: String, update: Bson): Future[Option[UpdateResult]] =
-    collection.updateOne(equal("_id", new ObjectId(id)), update).toFutureOption()
-
+  def persist(id: ObjectId, derivatives: List[ParentChildMapping]): Future[Option[Completed]] =
+    //TODO This assumes that these are all new mappings. If we haven't deleted any existing ones
+    // then we could get clashes on save if they haven't been prefetched yet. Or problems further
+    // down the line when they get prefetched and the mapping gets updated with the new path.
+    derivativesCollection.insertMany(derivatives).toFutureOption()
 }
