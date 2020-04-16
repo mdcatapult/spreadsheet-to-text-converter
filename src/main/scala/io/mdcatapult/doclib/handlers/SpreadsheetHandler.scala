@@ -12,16 +12,14 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
+import io.mdcatapult.doclib.models.{DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc, Sheet => TabSheet}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
-import org.bson.conversions.Bson
 import org.bson.types.ObjectId
-import org.mongodb.scala.{Completed, MongoCollection}
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
+import org.mongodb.scala.{Completed, MongoCollection}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -66,7 +64,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       _ <- OptionT.fromOption[Future](validateMimetype(doc))
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
-      derivatives <- OptionT.pure[Future](mergeDerivatives(doc, paths))
+      derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
       _ <- OptionT(deleteExistingDerivatives(doc))
       _ <- OptionT(persist(doc._id, derivatives)
         .andThen({
@@ -252,13 +250,13 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
 
 
   /**
-   * merge list of new paths into existing paths in DoclibDoc
+   * Create list of parent child mappings
    * @param doc DoclibDoc
-   * @param derivatives List[String]
+   * @param paths List[String]
    * @return List[Derivative] unique list of derivatives
    */
-  def mergeDerivatives(doc: DoclibDoc, derivatives: List[String]): List[ParentChildMapping] =
-    derivatives.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id))
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Some("spreadsheet_conversion")))
 
   def deleteExistingDerivatives(doc: DoclibDoc): Future[Option[DeleteResult]] = {
     // TODO should we delete the doclib docs as well ie child in the existing mappings
@@ -270,9 +268,11 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       Future.successful(None)
   }
 
-  def persist(id: ObjectId, derivatives: List[ParentChildMapping]): Future[Option[Completed]] =
+  def persist(id: ObjectId, derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
     //TODO This assumes that these are all new mappings. If we haven't deleted any existing ones
     // then we could get clashes on save if they haven't been prefetched yet. Or problems further
     // down the line when they get prefetched and the mapping gets updated with the new path.
     derivativesCollection.insertMany(derivatives).toFutureOption()
+  }
+
 }
