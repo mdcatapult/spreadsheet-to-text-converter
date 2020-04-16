@@ -66,7 +66,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
       _ <- OptionT(deleteExistingDerivatives(doc))
-      _ <- OptionT(persist(doc._id, derivatives)
+      _ <- OptionT(persist(derivatives)
         .andThen({
           case Success(_) => paths.foreach(path => enqueue(path, doc))
           case Failure(e) => throw e
@@ -268,7 +268,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
       Future.successful(None)
   }
 
-  def persist(id: ObjectId, derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
+  def persist(derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
     //TODO This assumes that these are all new mappings. If we haven't deleted any existing ones
     // then we could get clashes on save if they haven't been prefetched yet. Or problems further
     // down the line when they get prefetched and the mapping gets updated with the new path.
