@@ -39,6 +39,16 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   private val localTargetDir = config.getString("doclib.local.target-dir")
   private val convertToPath = config.getString("convert.to.path")
 
+  private val knownMimetypes =
+    Seq(
+      """application/vnd\.lotus.*""".r,
+      """application/vnd\.ms-excel.*""".r,
+      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
+      """application/vnd\.stardivision.calc""".r,
+      """application/vnd\.sun\.xml\.calc.*""".r,
+      """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
+    )
+
   case class MimetypeNotAllowed(doc: DoclibDoc,
                                 cause: Throwable = None.orNull)
     extends DoclibDocException(
@@ -60,18 +70,15 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     (for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
       if !docExtractor.isRunRecently(doc)
+
       started: UpdateResult <- OptionT(flags.start(doc))
       _ <- OptionT.fromOption[Future](validateMimetype(doc))
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
-      _ <- OptionT(deleteExistingDerivatives(doc))
-      _ <- OptionT(persist(derivatives)
-        .andThen({
-          case Success(_) => paths.foreach(path => enqueue(path, doc))
-          case Failure(e) => throw e
-        })
-      )
+      _ <- OptionT.liftF(deleteExistingDerivatives(doc))
+      _ <- OptionT(persist(derivatives))
+      _ <- OptionT.pure[Future](paths.foreach(path => enqueue(path, doc)))
       _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
     } yield (paths, doc)).value.andThen({
       case Success(result) => result match {
@@ -93,16 +100,6 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-    val knownMimetypes =
-      Seq(
-        """application/vnd\.lotus.*""".r,
-        """application/vnd\.ms-excel.*""".r,
-        """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
-        """application/vnd\.stardivision.calc""".r,
-        """application/vnd\.sun\.xml\.calc.*""".r,
-        """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
-      )
-
     if (knownMimetypes.exists(_.matches(doc.mimetype)))
       Some(true)
     else
@@ -137,7 +134,6 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
     source
   }
 
-
   /**
    * Persist to FS and return new sheet with new path and normalised filename
    * @param sheet TabSheet
@@ -146,7 +142,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
    */
   def saveToFS(sheet: TabSheet, targetPath: String): TabSheet = {
     val filename = sheet.name.replaceAll(" ", "_").replaceAll("[^0-9a-zA-Z_-]", "-")
-    val target = new File(s"$targetPath/${sheet.index}_$filename.$convertToFormat}")
+    val target = new File(s"$targetPath/${sheet.index}_$filename.$convertToFormat")
     target.getParentFile.mkdirs()
     val fileWriter = new FileWriter(target)
 
@@ -269,9 +265,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg], supervisor: Sendable
   }
 
   def persist(derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
-    //TODO This assumes that these are all new mappings. If we haven't deleted any existing ones
-    // then we could get clashes on save if they haven't been prefetched yet. Or problems further
-    // down the line when they get prefetched and the mapping gets updated with the new path.
+    //TODO This assumes that these are all new mappings. They all have unique ids. Could we
+    // have problems with them clashing with existing mappings?
     derivativesCollection.insertMany(derivatives).toFutureOption()
   }
 
