@@ -92,6 +92,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val name = "doclib-message-queue"
     val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+
     def send(envelope: SupervisorMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
@@ -100,7 +101,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   private val downstream = mock[QP]
   private val supervisor = mock[QS]
 
-  val spreadsheetHandler = new SpreadsheetHandler(downstream, supervisor)
+  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
 
   private val validDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -130,42 +131,6 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       spreadsheetHandler.validateMimetype(invalidDoc)
     }
     assert(caught.getMessage == "Document: 5d970056b3e8083540798f90 - Mimetype 'text/plain' not allowed'")
-  }
-
-
-  "Spreadsheet handler" should "create a target path from a doclib doc source" in {
-    val result = spreadsheetHandler.getTargetPath(validDoc.source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(result == "ingress/derivatives/resources/spreadsheet_conv-test.csv")
-  }
-
-  "A derivative" should "be ingested into doclib-root/temp-dir" in {
-    val source = "local/test.csv"
-    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
-  }
-
-  "A spreadsheet source" should "have a target path within doclib.temp-dir" in {
-    val source = "remote/test.csv"
-    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
-  }
-
-  "An existing derivative" should "only have derivative once in the path" in {
-    val source = "local/derivatives/test.csv"
-    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
-  }
-
-  "A path with multiple derivative segments" should "only have derivative once in the path" in {
-    val source = "local/derivatives/derivatives/derivatives/test.csv"
-    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
-  }
-
-  "An existing spreadsheet source" should "have a target path within doclib.temp-dir" in {
-    val source = "local/derivatives/remote/test.csv"
-    val target = spreadsheetHandler.getTargetPath(source, config.getString("convert.to.path"), Some("spreadsheet_conv"))
-    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
   }
 
   "A list of derivatives and a list of paths" can "be merged" in {
@@ -223,7 +188,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |  }
         |}
     """.stripMargin)
-    val mySpreadsheetHandler = new SpreadsheetHandler(downstream, supervisor)
+
+    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
+
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
@@ -244,7 +211,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   "Enqueue" should "send a message to the prefetch queue" in {
     val qp = new QP
-    val mySpreadsheetHandler = new SpreadsheetHandler(qp, supervisor)
+
+    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(qp, supervisor)
+
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
