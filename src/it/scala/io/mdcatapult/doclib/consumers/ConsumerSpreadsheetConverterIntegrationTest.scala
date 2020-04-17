@@ -115,7 +115,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   private val downstream = mock[QP]
   private val upstream = mock[QS]
 
-  val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
+  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
 
   "A spreadsheet can be converted" should "be validated" in {
     sheets.foreach(x => {
