@@ -46,39 +46,40 @@ class ConsumerPathsSpec extends AnyFlatSpec with Matchers {
 
   private val paths = new ConsumerPaths()
 
-  "Spreadsheet handler" should "create a target path from a doclib doc source" in {
+  private val localTempDir = config.getString("doclib.local.temp-dir")
+
+  "A ConsumerPaths targetPath" should "put source under ingress/derivatives with nesting when taking from local" in {
     val source = "local/resources/test.csv"
     val result = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(result == "ingress/derivatives/resources/spreadsheet_conv-test.csv")
+
+    result should be ("ingress/derivatives/resources/spreadsheet_conv-test.csv")
   }
 
-  "A derivative" should "be ingested into doclib-root/temp-dir" in {
+  it should "put target directly under ingress/derivatives when taking from local with no nesting" in {
     val source = "local/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
+
+    target should be ("ingress/derivatives/spreadsheet_conv-test.csv")
   }
 
-  "A spreadsheet source" should "have a target path within doclib.temp-dir" in {
+  it should "put target directly under {temp-dir}/derivatives when taking from remote with no nesting" in {
     val source = "remote/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
+
+    target should be (s"$localTempDir/derivatives/remote/spreadsheet_conv-test.csv")
   }
 
-  "An existing derivative" should "only have derivative once in the path" in {
-    val source = "local/derivatives/test.csv"
-    val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
-  }
-
-  "A path with multiple derivative segments" should "only have derivative once in the path" in {
+  it should "de-duplicate derivatives sub-path when derivatives multiply nested" in {
     val source = "local/derivatives/derivatives/derivatives/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(target == "ingress/derivatives/spreadsheet_conv-test.csv")
+
+    target should be ("ingress/derivatives/spreadsheet_conv-test.csv")
   }
 
-  "An existing spreadsheet source" should "have a target path within doclib.temp-dir" in {
+  it should "have a target path within doclib.temp-dir when taking an existing source" in {
     val source = "local/derivatives/remote/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
-    assert(target == s"${config.getString("doclib.local.temp-dir")}/derivatives/remote/spreadsheet_conv-test.csv")
+
+    target should be (s"$localTempDir/derivatives/remote/spreadsheet_conv-test.csv")
   }
 }

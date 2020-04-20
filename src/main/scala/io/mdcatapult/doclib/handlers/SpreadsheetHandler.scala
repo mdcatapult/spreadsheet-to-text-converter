@@ -8,9 +8,9 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc}
-import io.mdcatapult.doclib.util.DoclibFlags
+import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
@@ -91,7 +91,12 @@ class SpreadsheetHandler(
           case Failure(e) => throw e
         })
       )
-      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
+      _ <- OptionT(
+        flags.end(
+          doc,
+          state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
+          noCheck = started.getModifiedCount > 0,
+        ))
     } yield (paths, doc)).value.andThen({
       case Success(result) => result match {
         case Some(r) =>
