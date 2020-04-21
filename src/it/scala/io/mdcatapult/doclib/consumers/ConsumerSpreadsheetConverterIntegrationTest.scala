@@ -106,7 +106,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   private val downstream = mock[QP]
   private val upstream = mock[QS]
 
-  val spreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
+  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
 
   "A spreadsheet can be converted" should "be validated" in {
     sheets.foreach(x => {
@@ -229,7 +229,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
         |  }
         |}
     """.stripMargin)
-    val mySpreadsheetHandler = new SpreadsheetHandler(downstream, upstream)
+    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
     val parentID = new ObjectId
     val doc = DoclibDoc(
       _id = parentID,

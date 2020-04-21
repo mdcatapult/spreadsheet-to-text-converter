@@ -32,7 +32,10 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer("consumer-unarchive
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
 
     upstream.subscribe(
-      new SpreadsheetHandler(downstream, supervisor).handle,
+      SpreadsheetHandler.withWriteToFilesystem(
+        downstream,
+        supervisor,
+      ).handle,
       config.getInt("upstream.concurrent")
     )
   }
