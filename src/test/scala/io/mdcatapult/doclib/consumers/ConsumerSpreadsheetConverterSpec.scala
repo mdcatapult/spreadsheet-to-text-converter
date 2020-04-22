@@ -10,7 +10,7 @@ import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.util.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
@@ -68,6 +68,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = mock[JMongoCollection[DoclibDoc]]
   implicit val collection: MongoCollection[DoclibDoc] = MongoCollection[DoclibDoc](wrappedCollection)
+
+  val wrappedDerivativesCollection: JMongoCollection[ParentChildMapping] = mock[JMongoCollection[ParentChildMapping]]
+  implicit val derivativesCollection: MongoCollection[ParentChildMapping] = MongoCollection[ParentChildMapping](wrappedDerivativesCollection)
 
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
@@ -133,7 +136,10 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     assert(caught.getMessage == "Document: 5d970056b3e8083540798f90 - Mimetype 'text/plain' not allowed'")
   }
 
-  "A list of derivatives and a list of paths" can "be merged" in {
+  //"A list of derivatives and a list of paths"
+  // This test doesn't really match how we now do derivatives via parent-child mappings.
+  // Needs some clarity around what to do with existing mappings.
+  ignore can "be merged" in {
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
@@ -148,7 +154,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
     val derivativePaths = List[String]("ingress/derivatives/remote/spreadsheet_conv-test.csv/0_sheet1.tsv", "ingress/derivatives/remote/spreadsheet_conv-test.csv/1_sheet2.tsv")
-    val a = spreadsheetHandler.mergeDerivatives(derDoc, derivativePaths)
+    val a = spreadsheetHandler.createDerivativesFromPaths(derDoc, derivativePaths)
     assert(a.length == 4)
   }
 
@@ -205,7 +211,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
     val derivativePaths = List[String]("ingress/derivatives/remote/spreadsheet_conv-test.csv/0_sheet1.tsv", "ingress/derivatives/remote/spreadsheet_conv-test.csv/1_sheet2.tsv")
-    val a = mySpreadsheetHandler.mergeDerivatives(derDoc, derivativePaths)
+    val a = mySpreadsheetHandler.createDerivativesFromPaths(derDoc, derivativePaths)
     assert(a.length == 2)
   }
 
@@ -230,5 +236,20 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val result = mySpreadsheetHandler.enqueue("ingress/aFile.txt", derDoc)
     assert(result == "ingress/aFile.txt")
     assert(qp.sent.intValue() == 1)
+  }
+
+  "A list of parent child derivatives" can "be created from a list of child paths" in {
+    val pathList = List[String]("/a/path/1", "/a/path/2")
+    val doc = DoclibDoc(
+      _id = new ObjectId("5d970056b3e8083540798f90"),
+      source = "local/resources/test.csv",
+      hash = "01234567890",
+      mimetype = "text/csv",
+      created = LocalDateTime.parse("2019-10-01T12:00:00"),
+      updated = LocalDateTime.parse("2019-10-01T12:00:01")
+    )
+    val derivatives = spreadsheetHandler.createDerivativesFromPaths(doc, pathList)
+    assert(derivatives.length == 2)
+    assert(derivatives.exists(p => p.parent == doc._id && pathList.contains(p.childPath)))
   }
 }

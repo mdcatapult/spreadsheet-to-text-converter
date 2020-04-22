@@ -1,5 +1,7 @@
 package io.mdcatapult.doclib.handlers
 
+import java.util.UUID
+
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
@@ -8,16 +10,14 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin}
+import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc}
 import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
-import org.bson.conversions.Bson
 import org.bson.types.ObjectId
-import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{combine, set}
-import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.result.{DeleteResult, UpdateResult}
+import org.mongodb.scala.{Completed, MongoCollection}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,7 +31,9 @@ object SpreadsheetHandler {
            )
            (implicit ex: ExecutionContext,
             config: Config,
-            collection: MongoCollection[DoclibDoc]): SpreadsheetHandler =
+            collection: MongoCollection[DoclibDoc],
+            derivativesCollection: MongoCollection[ParentChildMapping],
+           ): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
@@ -48,11 +50,22 @@ class SpreadsheetHandler(
                         )
                         (implicit ex: ExecutionContext,
                          config: Config,
-                         collection: MongoCollection[DoclibDoc]) extends LazyLogging {
+                         collection: MongoCollection[DoclibDoc],
+                         derivativesCollection: MongoCollection[ParentChildMapping]) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
 
   private val overwriteDerivatives = config.getBoolean("doclib.overwriteDerivatives")
+
+  private val knownMimetypes =
+    Seq(
+      """application/vnd\.lotus.*""".r,
+      """application/vnd\.ms-excel.*""".r,
+      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
+      """application/vnd\.stardivision.calc""".r,
+      """application/vnd\.sun\.xml\.calc.*""".r,
+      """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
+    )
 
   case class MimetypeNotAllowed(doc: DoclibDoc,
                                 cause: Throwable = None.orNull)
@@ -75,22 +88,15 @@ class SpreadsheetHandler(
     (for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
       if !docExtractor.isRunRecently(doc)
+
       started: UpdateResult <- OptionT(flags.start(doc))
       _ <- OptionT.fromOption[Future](validateMimetype(doc))
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
-      derivatives <- OptionT.pure[Future](mergeDerivatives(doc, paths))
-      _ <- OptionT(
-        persist(
-          msg.id,
-          combine(
-            set("derivatives", derivatives)
-          )
-        ).andThen({
-          case Success(_) => paths.foreach(path => enqueue(path, doc))
-          case Failure(e) => throw e
-        })
-      )
+      derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
+      _ <- OptionT.liftF(deleteExistingDerivatives(doc))
+      _ <- OptionT(persist(derivatives))
+      _ <- OptionT.pure[Future](paths.foreach(path => enqueue(path, doc)))
       _ <- OptionT(
         flags.end(
           doc,
@@ -117,16 +123,6 @@ class SpreadsheetHandler(
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-    val knownMimetypes =
-      Seq(
-        """application/vnd\.lotus.*""".r,
-        """application/vnd\.ms-excel.*""".r,
-        """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
-        """application/vnd\.stardivision.calc""".r,
-        """application/vnd\.sun\.xml\.calc.*""".r,
-        """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
-      )
-
     if (knownMimetypes.exists(_.matches(doc.mimetype)))
       Some(true)
     else
@@ -155,7 +151,7 @@ class SpreadsheetHandler(
           MetaString("db", config.getString("mongo.database")),
           MetaString("collection", config.getString("mongo.collection")),
           MetaString("_id", doc._id.toString)))))
-      ),
+      )
     ))
 
     source
@@ -184,22 +180,28 @@ class SpreadsheetHandler(
   }
 
   /**
-   * merge list of new paths into existing paths in DoclibDoc
+   * Create list of parent child mappings
    * @param doc DoclibDoc
-   * @param derivatives List[String]
+   * @param paths List[String]
    * @return List[Derivative] unique list of derivatives
    */
-  def mergeDerivatives(doc: DoclibDoc, derivatives: List[String]): List[Derivative] = {
-    val newDerivatives = derivatives.map(d => Derivative(`type` = "spreadsheet_conversion", path = d))
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Some("spreadsheet_conversion")))
 
-    if (overwriteDerivatives) {
-      newDerivatives
-    } else {
-      (newDerivatives ::: doc.derivatives.getOrElse(Nil)).distinct
-    }
+  def deleteExistingDerivatives(doc: DoclibDoc): Future[Option[DeleteResult]] = {
+    // TODO should we delete the doclib docs as well ie child in the existing mappings
+    //  else we could end up with orphaned docs? You would already get that in the previous
+    //  version. Maybe overwriteDerivatives should default to true.
+    if (overwriteDerivatives)
+      derivativesCollection.deleteMany(equal("parent", doc._id)).toFutureOption()
+    else
+      Future.successful(None)
   }
 
-  def persist(id: String, update: Bson): Future[Option[UpdateResult]] =
-    collection.updateOne(equal("_id", new ObjectId(id)), update).toFutureOption()
+  def persist(derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
+    //TODO This assumes that these are all new mappings. They all have unique ids. Could we
+    // have problems with them clashing with existing mappings?
+    derivativesCollection.insertMany(derivatives).toFutureOption()
+  }
 
 }

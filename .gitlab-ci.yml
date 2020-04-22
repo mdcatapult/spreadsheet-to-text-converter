@@ -1,5 +1,7 @@
 services:
   - docker:dind
+  - name: mongo:latest
+    alias: mongo
 
 stages:
   - test
@@ -8,6 +10,8 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  MONGO_INITDB_ROOT_USERNAME: admin
+  MONGO_INITDB_ROOT_PASSWORD: admin
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -31,6 +35,12 @@ before_script:
 test:
   stage: test
   image: openjdk:14-slim
+  variables:
+    MONGO_HOST: mongo
+    MONGO_DATABASE: spreadsheet-test
+    MONGO_COLLECTION: documents
+    MONGO_USERNAME: admin
+    MONGO_PASSWORD: admin
   script:
     - sbt clean coverage test coverageReport it:package
   artifacts:
