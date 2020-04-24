@@ -9,15 +9,15 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models._
+import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc}
 import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.types.ObjectId
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.result.{DeleteResult, UpdateResult}
-import org.mongodb.scala.{Completed, MongoCollection}
+import org.mongodb.scala.result.{DeleteResult, InsertManyResult, UpdateResult}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -198,7 +198,7 @@ class SpreadsheetHandler(
       Future.successful(None)
   }
 
-  def persist(derivatives: List[ParentChildMapping]): Future[Option[Completed]] = {
+  def persist(derivatives: List[ParentChildMapping]): Future[Option[InsertManyResult]] = {
     //TODO This assumes that these are all new mappings. They all have unique ids. Could we
     // have problems with them clashing with existing mappings?
     derivativesCollection.insertMany(derivatives).toFutureOption()
