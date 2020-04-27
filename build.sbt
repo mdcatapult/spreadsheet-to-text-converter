@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "0.0.64"
+lazy val doclibCommonVersion = "0.0.68"
 
 val meta = """META.INF(.)*""".r
 
@@ -23,7 +23,8 @@ lazy val root = (project in file("."))
       "-deprecation",
       "-explaintypes",
       "-feature",
-      "-Xlint"
+      "-Xlint",
+      "-Xfatal-warnings",
     ),
     useCoursier      := false,
     resolvers         ++= Seq(
@@ -59,6 +60,7 @@ lazy val root = (project in file("."))
     ).map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
+        .exclude(org = "com.typesafe.play", name = "shaded-asynchttpclient")
     ),
   )
   .settings(

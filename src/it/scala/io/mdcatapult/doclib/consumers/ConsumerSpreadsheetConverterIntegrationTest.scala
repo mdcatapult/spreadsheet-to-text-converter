@@ -19,12 +19,13 @@ import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.{equal => Mequal}
-import org.mongodb.scala.{Completed, MongoCollection}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -32,7 +33,14 @@ import scala.concurrent.duration._
 class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
-  """))) with ImplicitSender with AnyFlatSpecLike with MockFactory with ScalaFutures with BeforeAndAfterAll with DirectoryDelete {
+  """)))
+  with ImplicitSender
+  with AnyFlatSpecLike
+  with Matchers
+  with MockFactory
+  with ScalaFutures
+  with BeforeAndAfterAll
+  with DirectoryDelete {
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
@@ -153,8 +161,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
     val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
     val result = Await.result(spreadsheetHandler.persist(parentChildMappings), 5.seconds)
-    assert(result.get.isInstanceOf[Completed])
-    assert(result.get.toString == "The operation completed successfully")
+
+    assert(result.exists(_.wasAcknowledged()))
     val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
     assert(findOne.head == mappingOne)
     val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
@@ -181,8 +189,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
     val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
     val result = Await.result(spreadsheetHandler.persist(parentChildMappings), 5.seconds)
-    assert(result.get.isInstanceOf[Completed])
-    assert(result.get.toString == "The operation completed successfully")
+
+    assert(result.exists(_.wasAcknowledged()))
     val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
     assert(findOne.head == mappingOne)
     val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
@@ -249,14 +257,15 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
     val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
     val result = Await.result(mySpreadsheetHandler.persist(parentChildMappings), 5.seconds)
-    assert(result.get.isInstanceOf[Completed])
-    assert(result.get.toString == "The operation completed successfully")
+
+    assert(result.exists(_.wasAcknowledged()))
     val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
     assert(findOne.head == mappingOne)
     val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
     assert(findTwo.head == mappingTwo)
     val deleteResult = Await.result(mySpreadsheetHandler.deleteExistingDerivatives(doc), 5.seconds)
-    assert(deleteResult == None)
+
+    deleteResult should be (None)
   }
 
   override def beforeAll(): Unit = {
