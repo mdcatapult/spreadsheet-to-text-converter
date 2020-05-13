@@ -137,7 +137,7 @@ class SpreadsheetHandler(
    */
   def enqueue(source: String, doc: DoclibDoc): String = {
     // Let prefetch know that it is a spreadsheet derivative
-    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "spreadsheet"))
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "tabular.totsv"))
 
     downstream.send(PrefetchMsg(
       source=source,
