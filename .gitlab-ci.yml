@@ -1,5 +1,7 @@
 services:
   - docker:dind
+  - name: mongo:latest
+    alias: mongo
 
 stages:
   - test
@@ -8,6 +10,8 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  MONGO_INITDB_ROOT_USERNAME: admin
+  MONGO_INITDB_ROOT_PASSWORD: admin
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -20,7 +24,7 @@ cache:
 
 before_script:
   - apt-get update -yqq
-  - apt-get install -yqq apt-transport-https ca-certificates
+  - apt-get install -yqq apt-transport-https ca-certificates gnupg
   - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
   - apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - apt-get update -yqq
@@ -30,9 +34,15 @@ before_script:
 
 test:
   stage: test
-  image: openjdk:11
+  image: openjdk:14-slim
+  variables:
+    MONGO_HOST: mongo
+    MONGO_DATABASE: spreadsheet-test
+    MONGO_COLLECTION: documents
+    MONGO_USERNAME: admin
+    MONGO_PASSWORD: admin
   script:
-    - sbt clean coverage test coverageReport
+    - sbt clean coverage test coverageReport it:package
   artifacts:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
@@ -43,7 +53,7 @@ test:
 
 assemble:
   stage: build
-  image: openjdk:11
+  image: openjdk:14-slim
   script:
     - sbt assembly
   artifacts:
@@ -79,10 +89,10 @@ publish:
 
 release:
   stage: build
-  image: openjdk:11
+  image: openjdk:14-slim
   before_script:
     - apt-get update -yqq
-    - apt-get install -yqq apt-transport-https ca-certificates
+    - apt-get install -yqq apt-transport-https ca-certificates gnupg curl
     - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
     - apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
     - apt-get update -yqq
