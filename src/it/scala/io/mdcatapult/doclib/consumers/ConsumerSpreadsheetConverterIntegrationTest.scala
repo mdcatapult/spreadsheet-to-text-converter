@@ -2,7 +2,7 @@ package io.mdcatapult.doclib.consumers
 
 import java.io.File
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.UUID.randomUUID
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -18,7 +18,6 @@ import io.mdcatapult.doclib.util.{DirectoryDelete, MongoCodecs}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
-import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.{equal => Mequal}
 import org.scalamock.scalatest.MockFactory
@@ -60,6 +59,9 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       |  }
       |  archive {
       |    target-dir: "archive"
+      |  }
+      |  derivative {
+      |    target-dir: "derivatives"
       |  }
       |  overwriteDerivatives: true
       |}
@@ -120,7 +122,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
-        _id = new ObjectId("5d970056b3e8083540798f90"),
+        _id = randomUUID(),
         source = path.toString,
         hash = "01234567890",
         mimetype = "text/csv",
@@ -136,7 +138,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
-        _id = new ObjectId("5d970056b3e8083540798f90"),
+        _id = randomUUID(),
         source = path.toString,
         hash = "01234567890",
         mimetype = "text/csv",
@@ -150,11 +152,11 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   }
 
   "The handler" should "save parent child mappings in the mongo derivatives collection" in {
-    val parentID = new ObjectId
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
+    val parentID = randomUUID()
+    val mappingOneID = randomUUID()
+    val mappingTwoID = randomUUID()
+    val childOneID = randomUUID()
+    val childTwoId = randomUUID()
     val childOnePath = "/a/path/to/file1.txt"
     val childTwoPath = "/a/path/to/file2.txt"
     val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
@@ -170,7 +172,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   }
 
   "The handler" should "delete existing derivatives for a doclib doc if the overwriteDerivatives flag is true" in {
-    val parentID = new ObjectId
+    val parentID = randomUUID()
     val doc = DoclibDoc(
       _id = parentID,
       source = "local/resources/test.csv",
@@ -179,10 +181,10 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
+    val mappingOneID = randomUUID()
+    val mappingTwoID = randomUUID()
+    val childOneID = randomUUID()
+    val childTwoId = randomUUID()
     val childOnePath = "/a/path/to/file1.txt"
     val childTwoPath = "/a/path/to/file2.txt"
     val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
@@ -238,7 +240,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
         |}
     """.stripMargin)
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
-    val parentID = new ObjectId
+    val parentID = randomUUID()
     val doc = DoclibDoc(
       _id = parentID,
       source = "local/resources/test.csv",
@@ -247,10 +249,10 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
+    val mappingOneID = randomUUID()
+    val mappingTwoID = randomUUID()
+    val childOneID = randomUUID()
+    val childTwoId = randomUUID()
     val childOnePath = "/a/path/to/file1.txt"
     val childTwoPath = "/a/path/to/file2.txt"
     val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
