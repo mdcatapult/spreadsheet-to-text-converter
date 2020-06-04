@@ -197,16 +197,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
 
-    val derivatives: List[Derivative] = List[Derivative](
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
-    )
     val derDoc = DoclibDoc(
       _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
-      derivatives = Some(derivatives),
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
@@ -220,16 +215,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(qp, supervisor)
 
-    val derivatives: List[Derivative] = List[Derivative](
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
-    )
     val derDoc = DoclibDoc(
       _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
-      derivatives = Some(derivatives),
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
