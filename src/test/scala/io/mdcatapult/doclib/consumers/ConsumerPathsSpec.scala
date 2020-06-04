@@ -25,9 +25,6 @@ class ConsumerPathsSpec extends AnyFlatSpec with Matchers {
       |  archive {
       |    target-dir: "archive"
       |  }
-      |  derivative {
-      |    target-dir: "derivatives"
-      |  }
       |}
       |convert {
       |  format: "tsv"
@@ -69,7 +66,7 @@ class ConsumerPathsSpec extends AnyFlatSpec with Matchers {
     val source = "remote/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
 
-    target should be (s"$localTempDir/derivatives/spreadsheet_conv-test.csv")
+    target should be (s"$localTempDir/derivatives/remote/spreadsheet_conv-test.csv")
   }
 
   it should "de-duplicate derivatives sub-path when derivatives multiply nested" in {
