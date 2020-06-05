@@ -76,6 +76,13 @@ class ConsumerPathsSpec extends AnyFlatSpec with Matchers {
     target should be ("ingress/derivatives/spreadsheet_conv-test.csv")
   }
 
+  it should "de-duplicate remote derivatives sub-path when derivatives multiply nested" in {
+    val source = "local/derivatives/derivatives/derivatives/remote/test.csv"
+    val target = paths.getTargetPath(source, Some("spreadsheet_conv"))
+
+    target should be ("ingress/derivatives/remote/spreadsheet_conv-test.csv")
+  }
+
   it should "have a target path within doclib.temp-dir when taking an existing source" in {
     val source = "local/derivatives/remote/test.csv"
     val target = paths.getTargetPath(source, Some("spreadsheet_conv"))

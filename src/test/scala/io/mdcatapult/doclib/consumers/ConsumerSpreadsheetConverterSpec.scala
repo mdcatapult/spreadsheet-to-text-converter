@@ -1,6 +1,7 @@
 package io.mdcatapult.doclib.consumers
 
 import java.time.LocalDateTime
+import java.util.UUID.randomUUID
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -14,7 +15,6 @@ import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.util.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
-import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
@@ -107,7 +107,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
 
   private val validDoc = DoclibDoc(
-    _id = new ObjectId("5d970056b3e8083540798f90"),
+    _id = randomUUID(),
     source = "local/resources/test.csv",
     hash = "01234567890",
     mimetype = "application/vnd.ms-excel",
@@ -116,7 +116,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   )
 
   private val invalidDoc = DoclibDoc(
-    _id = new ObjectId("5d970056b3e8083540798f90"),
+    _id = randomUUID(),
     source = "local/resources/test.csv",
     hash = "01234567890",
     mimetype = "text/plain",
@@ -133,7 +133,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val caught = intercept[Exception] {
       spreadsheetHandler.validateMimetype(invalidDoc)
     }
-    assert(caught.getMessage == "Document: 5d970056b3e8083540798f90 - Mimetype 'text/plain' not allowed'")
+    assert(caught.getMessage == s"Document: ${invalidDoc._id} - Mimetype 'text/plain' not allowed'")
   }
 
   //"A list of derivatives and a list of paths"
@@ -145,7 +145,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
     )
     val derDoc = DoclibDoc(
-      _id = new ObjectId("5d970056b3e8083540798f90"),
+      _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
@@ -197,16 +197,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
 
-    val derivatives: List[Derivative] = List[Derivative](
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
-    )
     val derDoc = DoclibDoc(
-      _id = new ObjectId("5d970056b3e8083540798f90"),
+      _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
-      derivatives = Some(derivatives),
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
@@ -220,16 +215,11 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(qp, supervisor)
 
-    val derivatives: List[Derivative] = List[Derivative](
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
-      Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/another_derivative.txt")
-    )
     val derDoc = DoclibDoc(
-      _id = new ObjectId("5d970056b3e8083540798f90"),
+      _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
-      derivatives = Some(derivatives),
       created = LocalDateTime.parse("2019-10-01T12:00:00"),
       updated = LocalDateTime.parse("2019-10-01T12:00:01")
     )
@@ -241,7 +231,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   "A list of parent child derivatives" can "be created from a list of child paths" in {
     val pathList = List[String]("/a/path/1", "/a/path/2")
     val doc = DoclibDoc(
-      _id = new ObjectId("5d970056b3e8083540798f90"),
+      _id = randomUUID(),
       source = "local/resources/test.csv",
       hash = "01234567890",
       mimetype = "text/csv",
