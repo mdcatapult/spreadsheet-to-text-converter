@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "0.0.72-SNAPSHOT"
+lazy val doclibCommonVersion = "0.0.68"
 
 val meta = """META.INF(.)*""".r
 
@@ -16,7 +16,7 @@ lazy val root = (project in file("."))
   .settings(
     Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
-    scalaVersion      := "2.13.2",
+    scalaVersion      := "2.13.1",
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",

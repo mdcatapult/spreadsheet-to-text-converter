@@ -71,7 +71,7 @@ class SpreadsheetHandler(
                                 cause: Throwable = None.orNull)
     extends DoclibDocException(
       doc,
-      s"Document: ${doc._id.toString} - Mimetype '${doc.mimetype}' not allowed'",
+      s"Document: ${doc._id.toHexString} - Mimetype '${doc.mimetype}' not allowed'",
       cause)
 
   lazy val flags = new DoclibFlags(docExtractor.defaultFlagKey)
@@ -106,7 +106,7 @@ class SpreadsheetHandler(
     } yield (paths, doc)).value.andThen({
       case Success(result) => result match {
         case Some(r) =>
-          supervisor.send(SupervisorMsg(id = r._2._id.toString))
+          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
           logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
         case None => () // do nothing?
       }
