@@ -1,6 +1,6 @@
 services:
   - docker:dind
-  - name: mongo:latest
+  - name: mongo:4.2
     alias: mongo
 
 stages:
@@ -42,7 +42,7 @@ test:
     MONGO_USERNAME: admin
     MONGO_PASSWORD: admin
   script:
-    - sbt clean coverage test coverageReport it:package
+    - sbt clean coverage test it:test coverageReport
   artifacts:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
