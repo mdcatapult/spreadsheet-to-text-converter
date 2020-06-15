@@ -44,43 +44,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
-  implicit val config: Config = ConfigFactory.parseString(
-    """
-      |doclib {
-      |  root: "test-assets"
-      |  flag: "tabular.totsv"
-      |  overwriteDerivatives: false
-      |  local {
-      |    target-dir: "local"
-      |    temp-dir: "ingress"
-      |  }
-      |  remote {
-      |    target-dir: "remote"
-      |    temp-dir: "remote-ingress"
-      |  }
-      |  archive {
-      |    target-dir: "archive"
-      |  }
-      |  overwriteDerivatives: true
-      |}
-      |convert {
-      |  format: "tsv"
-      |  to: {
-      |    path: "derivatives"
-      |  }
-      |}
-      |mongo {
-      |  database: "spreadsheet-test"
-      |  collection: "documents"
-      |  derivative_collection: "derivatives"
-      |  connection {
-      |    username: "doclib"
-      |    password: "doclib"
-      |    database: "admin"
-      |    hosts: ["localhost"]
-      |  }
-      |}
-    """.stripMargin)
+  implicit val config: Config = ConfigFactory.load()
 
   import system.dispatcher
 
