@@ -86,7 +86,7 @@ class SpreadsheetHandler(
     logger.info(f"RECEIVED: ${msg.id}")
 
     (for {
-      doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption())
+      doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
       if !docExtractor.isRunRecently(doc)
 
       started: UpdateResult <- OptionT(flags.start(doc))
@@ -112,7 +112,7 @@ class SpreadsheetHandler(
       }
       // Wait 10 seconds then fail
       case Failure(e: DoclibDocException) => flags.error(e.getDoc, noCheck = true)
-      case Failure(_) => Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first.toFutureOption(), 10.seconds)) match {
+      case Failure(_) => Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
         case Success(value: Option[DoclibDoc]) => value match {
           case Some(aDoc) => flags.error(aDoc, noCheck = true)
           case _ => () // captured by error handling

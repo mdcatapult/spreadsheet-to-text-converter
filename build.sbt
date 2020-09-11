@@ -16,7 +16,7 @@ lazy val root = (project in file("."))
   .settings(
     Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
-    scalaVersion      := "2.13.1",
+    scalaVersion      := "2.13.3",
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
