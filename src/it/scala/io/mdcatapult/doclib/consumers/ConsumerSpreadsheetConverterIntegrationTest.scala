@@ -14,9 +14,10 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
-import io.mdcatapult.doclib.util.{DirectoryDelete, MongoCodecs}
+import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
+import io.mdcatapult.util.path.DirectoryDeleter.deleteDirectories
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
@@ -39,8 +40,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   with Matchers
   with MockFactory
   with ScalaFutures
-  with BeforeAndAfterAll
-  with DirectoryDelete {
+  with BeforeAndAfterAll {
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
@@ -199,6 +199,13 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
         |    database: "admin"
         |    hosts: ["localhost"]
         |  }
+        |}
+        |version {
+        |  number = "2.0.17-SNAPSHOT",
+        |  major = 2,
+        |  minor =  0,
+        |  patch = 17,
+        |  hash =  "ca00f0cf"
         |}
     """.stripMargin)
     val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
