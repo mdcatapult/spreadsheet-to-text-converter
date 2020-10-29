@@ -7,8 +7,10 @@ import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc}
@@ -112,12 +114,17 @@ class SpreadsheetHandler(
       case Success(result) => result match {
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success")
           logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
         case None => () // do nothing?
       }
       // Wait 10 seconds then fail
-      case Failure(e: DoclibDocException) => flagContext.error(e.getDoc, noCheck = true)
-      case Failure(_) => Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
+      case Failure(e: DoclibDocException) =>
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception")
+        flagContext.error(e.getDoc, noCheck = true)
+      case Failure(_) =>
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error")
+        Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
         case Success(value: Option[DoclibDoc]) => value match {
           case Some(aDoc) => flagContext.error(aDoc, noCheck = true)
           case _ => () // captured by error handling
