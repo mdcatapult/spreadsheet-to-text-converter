@@ -114,16 +114,16 @@ class SpreadsheetHandler(
       case Success(result) => result match {
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
           logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
         case None => () // do nothing?
       }
       // Wait 10 seconds then fail
       case Failure(e: DoclibDocException) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception")
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception").inc()
         flagContext.error(e.getDoc, noCheck = true)
       case Failure(_) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error")
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
         Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
         case Success(value: Option[DoclibDoc]) => value match {
           case Some(aDoc) => flagContext.error(aDoc, noCheck = true)

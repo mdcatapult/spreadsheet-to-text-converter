@@ -5,8 +5,8 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "1.0.2-SNAPSHOT"
-lazy val kleinUtilVersion = "1.1.2-SNAPSHOT"
+lazy val doclibCommonVersion = "1.1.0"
+lazy val kleinUtilVersion = "1.2.0"
 
 val meta = """META.INF(.)*""".r
 
