@@ -11,7 +11,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, ParentChildMapping}
-import io.mdcatapult.doclib.util.MongoCodecs
+import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
@@ -60,6 +60,13 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |    database: "admin"
       |    hosts: ["localhost"]
       |  }
+      |}
+      |version {
+      |  number = "2.0.17-SNAPSHOT",
+      |  major = 2,
+      |  minor =  0,
+      |  patch = 17,
+      |  hash =  "ca00f0cf"
       |}
     """.stripMargin)
 
@@ -192,6 +199,13 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |    database: "admin"
         |    hosts: ["localhost"]
         |  }
+        |}
+        |version {
+        |  number = "2.0.17-SNAPSHOT",
+        |  major = 2,
+        |  minor =  0,
+        |  patch = 17,
+        |  hash =  "ca00f0cf"
         |}
     """.stripMargin)
 

@@ -5,7 +5,8 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "0.0.71"
+lazy val doclibCommonVersion = "1.0.2-SNAPSHOT"
+lazy val kleinUtilVersion = "1.1.2-SNAPSHOT"
 
 val meta = """META.INF(.)*""".r
 
@@ -53,6 +54,7 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+      "io.mdcatapult.klein" %% "util"                 % kleinUtilVersion,
       "org.apache.poi" % "poi"                        % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiVersion,
