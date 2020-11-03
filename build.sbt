@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "0.0.71"
+lazy val doclibCommonVersion = "1.1.2"
 
 val meta = """META.INF(.)*""".r
 
@@ -83,6 +83,7 @@ lazy val root = (project in file("."))
       case PathList("org", "w3c", "dom", "UserDataHandler.class") => MergeStrategy.first
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
+      case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value

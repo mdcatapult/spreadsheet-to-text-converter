@@ -3,19 +3,23 @@ package io.mdcatapult.doclib.consumers
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.spingo.op_rabbit.SubscriptionRef
+import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.{Envelope, Queue}
+import io.mdcatapult.util.admin.{Server => AdminServer}
 import org.mongodb.scala.MongoCollection
 import play.api.libs.json.Format
 
-object ConsumerSpreadsheetConverter extends AbstractConsumer("consumer-unarchive") {
+object ConsumerSpreadsheetConverter extends AbstractConsumer(ConsumerName) {
 
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
     import as.dispatcher
+
+    AdminServer(config).start()
 
     implicit val collection: MongoCollection[DoclibDoc] =
       mongo.database.getCollection(config.getString("mongo.collection"))
@@ -24,7 +28,7 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer("consumer-unarchive
       mongo.database.getCollection(config.getString("mongo.derivative_collection"))
 
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
-      Queue[T](config.getString(property), consumerName = Some("spreadsheet-converter"))
+      Queue[T](config.getString(property), consumerName = Some(ConsumerName))
 
     /** initialise queues **/
     val upstream: Queue[DoclibMsg] = queue("upstream.queue")
