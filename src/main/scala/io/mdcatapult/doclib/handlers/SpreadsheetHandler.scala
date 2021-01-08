@@ -92,7 +92,7 @@ class SpreadsheetHandler(
 
     val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
 
-    (for {
+    val spreadSheetProcess = (for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
       if !docExtractor.isRunRecently(doc)
 
@@ -110,26 +110,32 @@ class SpreadsheetHandler(
           state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
           noCheck = started.changesMade,
         ))
-    } yield (paths, doc)).value.andThen({
+    } yield (paths, doc))
+
+    spreadSheetProcess.value.andThen {
       case Success(result) => result.map(r => {
         supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-                  handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
-                  logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
+        logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
       })
-      // Wait 10 seconds then fail
       case Failure(e: DoclibDocException) =>
         handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception").inc()
-        flagContext.error(e.getDoc, noCheck = true)
+        flagContext.error(e.getDoc, noCheck = true).andThen {
+          case Failure(e) => logger.error("error attempting error flag write", e)
+        }
       case Failure(_) =>
         handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
-        Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
-        case Success(value: Option[DoclibDoc]) => value match {
-          case Some(aDoc) => flagContext.error(aDoc, noCheck = true)
-          case _ => () // captured by error handling
+
+        collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().map {
+          case Some(foundDoc) =>
+            flagContext.error(foundDoc, noCheck = true).andThen {
+              case Failure(e) => logger.error("error attempting error flag write", e)
+            }
+          case None =>
+            val message = s"could not find ${msg.id}"
+            logger.error(message, new Exception(message))
         }
-        case Failure(_) => () // Error will bubble up
-      }
-    })
+    }
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
