@@ -24,9 +24,8 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.result.{DeleteResult, InsertManyResult}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object SpreadsheetHandler {
 
