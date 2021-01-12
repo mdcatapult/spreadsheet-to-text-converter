@@ -91,7 +91,7 @@ class SpreadsheetHandler(
 
     val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
 
-    val spreadSheetProcess = (for {
+    val spreadSheetProcess = for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
       if !docExtractor.isRunRecently(doc)
 
@@ -109,32 +109,47 @@ class SpreadsheetHandler(
           state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
           noCheck = started.changesMade,
         ))
-    } yield (paths, doc))
+    } yield (paths, doc)
 
     spreadSheetProcess.value.andThen {
       case Success(result) => result.map(r => {
         supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
+        incrementHandlerCount("success")
         logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
       })
       case Failure(e: DoclibDocException) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception").inc()
+        incrementHandlerCount("doclib_doc_exception")
         flagContext.error(e.getDoc, noCheck = true).andThen {
-          case Failure(e) => logger.error("error attempting error flag write", e)
+          case Failure(e) =>
+            incrementHandlerCount("error_attempting_error_flag_write")
+            logger.error("error attempting error flag write", e)
         }
       case Failure(_) =>
         handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
 
-        collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().map {
-          case Some(foundDoc) =>
-            flagContext.error(foundDoc, noCheck = true).andThen {
-              case Failure(e) => logger.error("error attempting error flag write", e)
-            }
-          case None =>
-            val message = s"could not find ${msg.id}"
-            logger.error(message, new Exception(message))
+        collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().onComplete {
+          case Failure(e) =>
+            incrementHandlerCount("error_retrieving_document")
+            logger.error(s"error retrieving document", e)
+          case Success(value) => value match {
+            case Some(foundDoc) =>
+              flagContext.error(foundDoc, noCheck = true).andThen {
+                case Failure(e) =>
+                  incrementHandlerCount("error_attempting_error_flag_write")
+                  logger.error("error attempting error flag write", e)
+              }
+            case None =>
+              val message = f"${msg.id} - no document found"
+              incrementHandlerCount("error_no_document")
+              logger.error(message, new Exception(message))
+          }
         }
     }
+  }
+
+  private def incrementHandlerCount(labels: String*): Unit = {
+    val labelsWithDefaults = Seq(ConsumerName, config.getString("upstream.queue")) ++ labels
+    handlerCount.labels(labelsWithDefaults: _*).inc()
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
