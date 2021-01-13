@@ -125,22 +125,17 @@ class SpreadsheetHandler(
             logger.error("error attempting error flag write", e)
         }
       case Failure(_) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
+        incrementHandlerCount("unknown_error")
 
         collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().onComplete {
-          case Failure(e) =>
-            incrementHandlerCount("error_retrieving_document")
-            logger.error(s"error retrieving document", e)
+          case Failure(e) => logger.error(s"error retrieving document", e)
           case Success(value) => value match {
             case Some(foundDoc) =>
               flagContext.error(foundDoc, noCheck = true).andThen {
-                case Failure(e) =>
-                  incrementHandlerCount("error_attempting_error_flag_write")
-                  logger.error("error attempting error flag write", e)
+                case Failure(e) => logger.error("error attempting error flag write", e)
               }
             case None =>
               val message = f"${msg.id} - no document found"
-              incrementHandlerCount("error_no_document")
               logger.error(message, new Exception(message))
           }
         }
