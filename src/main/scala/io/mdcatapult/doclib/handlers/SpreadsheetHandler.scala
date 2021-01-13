@@ -24,9 +24,8 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.result.{DeleteResult, InsertManyResult}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object SpreadsheetHandler {
 
@@ -92,7 +91,7 @@ class SpreadsheetHandler(
 
     val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
 
-    (for {
+    val spreadSheetProcess = for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
       if !docExtractor.isRunRecently(doc)
 
@@ -110,28 +109,40 @@ class SpreadsheetHandler(
           state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
           noCheck = started.changesMade,
         ))
-    } yield (paths, doc)).value.andThen({
-      case Success(result) => result match {
-        case Some(r) =>
-          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
-          logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
-        case None => () // do nothing?
-      }
-      // Wait 10 seconds then fail
+    } yield (paths, doc)
+
+    spreadSheetProcess.value.andThen {
+      case Success(result) => result.map(r => {
+        supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+        incrementHandlerCount("success")
+        logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
+      })
       case Failure(e: DoclibDocException) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "doclib_doc_exception").inc()
-        flagContext.error(e.getDoc, noCheck = true)
-      case Failure(_) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
-        Try(Await.result(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption(), 10.seconds)) match {
-        case Success(value: Option[DoclibDoc]) => value match {
-          case Some(aDoc) => flagContext.error(aDoc, noCheck = true)
-          case _ => () // captured by error handling
+        incrementHandlerCount("doclib_doc_exception")
+        flagContext.error(e.getDoc, noCheck = true).andThen {
+          case Failure(e) => logger.error("error attempting error flag write", e)
         }
-        case Failure(_) => () // Error will bubble up
-      }
-    })
+      case Failure(_) =>
+        incrementHandlerCount("unknown_error")
+
+        collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().onComplete {
+          case Failure(e) => logger.error(s"error retrieving document", e)
+          case Success(value) => value match {
+            case Some(foundDoc) =>
+              flagContext.error(foundDoc, noCheck = true).andThen {
+                case Failure(e) => logger.error("error attempting error flag write", e)
+              }
+            case None =>
+              val message = f"${msg.id} - no document found"
+              logger.error(message, new Exception(message))
+          }
+        }
+    }
+  }
+
+  private def incrementHandlerCount(labels: String*): Unit = {
+    val labelsWithDefaults = Seq(ConsumerName, config.getString("upstream.queue")) ++ labels
+    handlerCount.labels(labelsWithDefaults: _*).inc()
   }
 
   def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
