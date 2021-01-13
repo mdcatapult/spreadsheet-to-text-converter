@@ -120,9 +120,7 @@ class SpreadsheetHandler(
       case Failure(e: DoclibDocException) =>
         incrementHandlerCount("doclib_doc_exception")
         flagContext.error(e.getDoc, noCheck = true).andThen {
-          case Failure(e) =>
-            incrementHandlerCount("error_attempting_error_flag_write")
-            logger.error("error attempting error flag write", e)
+          case Failure(e) => logger.error("error attempting error flag write", e)
         }
       case Failure(_) =>
         incrementHandlerCount("unknown_error")
