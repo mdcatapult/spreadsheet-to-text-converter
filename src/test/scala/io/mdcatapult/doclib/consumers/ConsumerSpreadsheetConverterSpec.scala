@@ -31,8 +31,6 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     """
       |doclib {
       |  root: "test-assets"
-      |  flag: "tabular.totsv"
-      |  overwriteDerivatives: false
       |  local {
       |    target-dir: "local"
       |    temp-dir: "ingress"
@@ -44,16 +42,16 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |  archive {
       |    target-dir: "archive"
       |  }
+      |  derivative {
+      |    path = "derivatives"
+      |  }
       |}
       |convert {
       |  format: "tsv"
-      |  to: {
-      |    path: "derivatives"
-      |  }
       |}
       |mongo {
-      |  database: "prefetch-test"
-      |  collection: "documents"
+      |  doclib-database: "prefetch-test"
+      |  documents-collection: "documents"
       |  connection {
       |    username: "doclib"
       |    password: "doclib"
@@ -67,6 +65,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |  minor =  0,
       |  patch = 17,
       |  hash =  "ca00f0cf"
+      |}
+      |consumer {
+      |  name = spreadsheet-converter
       |}
     """.stripMargin)
 
@@ -133,7 +134,6 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   "A doclib doc with a valid mimetype" should "be validated" in {
     assert(spreadsheetHandler.validateMimetype(validDoc).get)
-
   }
 
   "A doclib doc with an invalid mimetype" should "not be validated" in {
@@ -183,16 +183,16 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |  archive {
         |    target-dir: "archive"
         |  }
+        |  derivative {
+        |    path: derivatives
+        |  }
         |}
         |convert {
         |  format: "tsv"
-        |  to: {
-        |    path: "derivatives"
-        |  }
         |}
         |mongo {
-        |  database: "prefetch-test"
-        |  collection: "documents"
+        |  doclib-database: "prefetch-test"
+        |  documents-collection: "documents"
         |  connection {
         |    username: "doclib"
         |    password: "doclib"
@@ -206,6 +206,9 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |  minor =  0,
         |  patch = 17,
         |  hash =  "ca00f0cf"
+        |}
+        |consumer {
+        |  name = "spreadsheet-converter"
         |}
     """.stripMargin)
 

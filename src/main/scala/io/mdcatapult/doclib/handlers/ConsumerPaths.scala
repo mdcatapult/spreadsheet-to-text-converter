@@ -16,7 +16,7 @@ class ConsumerPaths()(implicit config: Config) {
   private val doclibRoot = config.getString("doclib.root")
   private val tempDir = config.getString("doclib.local.temp-dir")
   private val localTargetDir = config.getString("doclib.local.target-dir")
-  private val convertToPath = config.getString("convert.to.path")
+  private val convertToPath = config.getString("doclib.derivative.path")
 
   /**
     * The absolute path from file system root through doclib root to the actual file
