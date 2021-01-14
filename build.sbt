@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "1.1.2"
+lazy val doclibCommonVersion = "2.0.1"
 
 val meta = """META.INF(.)*""".r
 
@@ -81,7 +81,7 @@ lazy val root = (project in file("."))
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case PathList("org", "w3c", "dom", "UserDataHandler.class") => MergeStrategy.first
-      case n if n.startsWith("application.conf") => MergeStrategy.concat
+      case n if n.startsWith("application.conf") => MergeStrategy.first
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first

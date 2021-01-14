@@ -7,7 +7,6 @@ import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.exception.DoclibDocException
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.metrics.Metrics.handlerCount
@@ -22,10 +21,10 @@ import io.mdcatapult.util.models.result.UpdatedResult
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.result.{DeleteResult, InsertManyResult}
+import org.mongodb.scala.result.InsertManyResult
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object SpreadsheetHandler {
 
@@ -61,8 +60,6 @@ class SpreadsheetHandler(
   private val version = Version.fromConfig(config)
   private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
 
-  private val overwriteDerivatives = config.getBoolean("doclib.overwriteDerivatives")
-
   private val knownMimetypes =
     Seq(
       """application/vnd\.lotus.*""".r,
@@ -89,7 +86,7 @@ class SpreadsheetHandler(
   def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.name")))
 
     val spreadSheetProcess = for {
       doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
@@ -100,7 +97,6 @@ class SpreadsheetHandler(
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
-      _ <- OptionT.liftF(deleteExistingDerivatives(doc))
       _ <- OptionT(persist(derivatives))
       _ <- OptionT.pure[Future](paths.foreach(path => enqueue(path, doc)))
       _ <- OptionT.liftF(
@@ -141,7 +137,7 @@ class SpreadsheetHandler(
   }
 
   private def incrementHandlerCount(labels: String*): Unit = {
-    val labelsWithDefaults = Seq(ConsumerName, config.getString("upstream.queue")) ++ labels
+    val labelsWithDefaults = Seq(config.getString("consumer.name"), config.getString("consumer.queue")) ++ labels
     handlerCount.labels(labelsWithDefaults: _*).inc()
   }
 
@@ -171,8 +167,8 @@ class SpreadsheetHandler(
         scheme = "mongodb",
         hostname = None,
         metadata = Some(List[MetaValueUntyped](
-          MetaString("db", config.getString("mongo.database")),
-          MetaString("collection", config.getString("mongo.collection")),
+          MetaString("db", config.getString("mongo.doclib-database")),
+          MetaString("collection", config.getString("mongo.documents-collection")),
           MetaString("_id", doc._id.toString)))))
       )
     ))
@@ -186,7 +182,7 @@ class SpreadsheetHandler(
    * @return List[String] list of new paths created
    */
   def process(doc: DoclibDoc): List[String] = {
-    val targetPath = paths.getTargetPath(doc.source, Some("spreadsheet_conv"))
+    val targetPath = paths.getTargetPath(doc.source, Try(config.getString("consumer.name")).toOption)
     val sourceAbsPath = paths.absolutePath(doc.source)
 
     val d = new TabularDoc(sourceAbsPath)
@@ -209,17 +205,7 @@ class SpreadsheetHandler(
    * @return List[Derivative] unique list of derivatives
    */
   def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
-    paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Some("spreadsheet_conversion")))
-
-  def deleteExistingDerivatives(doc: DoclibDoc): Future[Option[DeleteResult]] = {
-    // TODO should we delete the doclib docs as well ie child in the existing mappings
-    //  else we could end up with orphaned docs? You would already get that in the previous
-    //  version. Maybe overwriteDerivatives should default to true.
-    if (overwriteDerivatives)
-      derivativesCollection.deleteMany(equal("parent", doc._id)).toFutureOption()
-    else
-      Future.successful(None)
-  }
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Try(config.getString("consumer.name")).toOption))
 
   def persist(derivatives: List[ParentChildMapping]): Future[Option[InsertManyResult]] = {
     //TODO This assumes that these are all new mappings. They all have unique ids. Could we
