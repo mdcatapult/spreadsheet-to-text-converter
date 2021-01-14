@@ -133,26 +133,6 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     assert(findTwo.head == mappingTwo)
   }
 
-  "The handler" should "delete existing derivatives for a doclib doc if the overwriteDerivatives flag is true" in {
-    val parentID = new ObjectId
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
-    val childOnePath = "/a/path/to/file1.txt"
-    val childTwoPath = "/a/path/to/file2.txt"
-    val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
-    val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
-    val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
-    val result = Await.result(spreadsheetHandler.persist(parentChildMappings), 5.seconds)
-
-    assert(result.exists(_.wasAcknowledged()))
-    val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
-    assert(findOne.head == mappingOne)
-    val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
-    assert(findTwo.head == mappingTwo)
-  }
-
   override def beforeAll(): Unit = {
     Await.result(collection.drop().toFuture(), 5.seconds)
     Await.result(derivativesCollection.drop().toFuture(), 5.seconds)
