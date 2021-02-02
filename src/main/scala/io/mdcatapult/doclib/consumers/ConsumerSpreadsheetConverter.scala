@@ -27,9 +27,6 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
-    def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
-      Queue[T](config.getString(property), consumerName = Try(config.getString("consumer.name")).toOption)
-
     /** initialise queues **/
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
     val downstream: Queue[PrefetchMsg] = queue("downstream.queue")
