@@ -8,11 +8,9 @@ import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
-import io.mdcatapult.klein.queue.{Envelope, Queue}
+import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
 import org.mongodb.scala.MongoCollection
-import play.api.libs.json.Format
-import scala.util.Try
 
 object ConsumerSpreadsheetConverter extends AbstractConsumer {
 
