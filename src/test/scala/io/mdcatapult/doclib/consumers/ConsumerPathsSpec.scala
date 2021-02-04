@@ -26,7 +26,7 @@ class ConsumerPathsSpec extends AnyFlatSpec with Matchers {
       |    target-dir: "archive"
       |  }
       |  derivative {
-      |    path: "derivatives"
+      |    target-dir: "derivatives"
       |  }
       |}
       |convert {

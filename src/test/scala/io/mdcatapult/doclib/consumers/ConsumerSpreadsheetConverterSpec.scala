@@ -43,7 +43,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |    target-dir: "archive"
       |  }
       |  derivative {
-      |    path = "derivatives"
+      |    target-dir: "derivatives"
       |  }
       |}
       |convert {
@@ -184,7 +184,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |    target-dir: "archive"
         |  }
         |  derivative {
-        |    path: derivatives
+        |    target-dir: derivatives
         |  }
         |}
         |convert {
