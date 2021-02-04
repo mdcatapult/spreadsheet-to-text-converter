@@ -51,8 +51,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   implicit val codecs: CodecRegistry = MongoCodecs.get
   val mongo: Mongo = new Mongo()
 
-  implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
-  implicit val derivativesCollection: MongoCollection[ParentChildMapping] = mongo.database.getCollection(config.getString("mongo.derivative_collection"))
+  implicit val collection: MongoCollection[DoclibDoc] = mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.documents-collection"))
+  implicit val derivativesCollection: MongoCollection[ParentChildMapping] = mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
@@ -113,7 +113,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     })
   }
 
-  "The handler" should "save parent child mappings in the mongo derivatives collection" in {
+  "The handler" should "create parent child mappings" in {
     val parentID = new ObjectId
     val mappingOneID = UUID.randomUUID
     val mappingTwoID = UUID.randomUUID
@@ -131,112 +131,6 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     assert(findOne.head == mappingOne)
     val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
     assert(findTwo.head == mappingTwo)
-  }
-
-  "The handler" should "delete existing derivatives for a doclib doc if the overwriteDerivatives flag is true" in {
-    val parentID = new ObjectId
-    val doc = DoclibDoc(
-      _id = parentID,
-      source = "local/resources/test.csv",
-      hash = "01234567890",
-      mimetype = "text/csv",
-      created = LocalDateTime.parse("2019-10-01T12:00:00"),
-      updated = LocalDateTime.parse("2019-10-01T12:00:01")
-    )
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
-    val childOnePath = "/a/path/to/file1.txt"
-    val childTwoPath = "/a/path/to/file2.txt"
-    val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
-    val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
-    val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
-    val result = Await.result(spreadsheetHandler.persist(parentChildMappings), 5.seconds)
-
-    assert(result.exists(_.wasAcknowledged()))
-    val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
-    assert(findOne.head == mappingOne)
-    val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
-    assert(findTwo.head == mappingTwo)
-    val deleteResult = Await.result(spreadsheetHandler.deleteExistingDerivatives(doc), 5.seconds)
-    assert(deleteResult.get.getDeletedCount == 2)
-  }
-
-  "The handler" should "not delete existing derivatives if overwriteDerivatives flag is false" in {
-    implicit val config: Config = ConfigFactory.parseString(
-      """
-        |doclib {
-        |  root: "test-assets"
-        |  flag: "tabular.totsv"
-        |  overwriteDerivatives: false
-        |  local {
-        |    target-dir: "local"
-        |    temp-dir: "ingress"
-        |  }
-        |  remote {
-        |    target-dir: "remote"
-        |    temp-dir: "remote-ingress"
-        |  }
-        |  archive {
-        |    target-dir: "archive"
-        |  }
-        |  overwriteDerivatives: false
-        |}
-        |convert {
-        |  format: "tsv"
-        |  to: {
-        |    path: "derivatives"
-        |  }
-        |}
-        |mongo {
-        |  database: "spreadsheet-test"
-        |  collection: "documents"
-        |  derivative_collection: "derivatives"
-        |  connection {
-        |    username: "doclib"
-        |    password: "doclib"
-        |    database: "admin"
-        |    hosts: ["localhost"]
-        |  }
-        |}
-        |version {
-        |  number = "2.0.17-SNAPSHOT",
-        |  major = 2,
-        |  minor =  0,
-        |  patch = 17,
-        |  hash =  "ca00f0cf"
-        |}
-    """.stripMargin)
-    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
-    val parentID = new ObjectId
-    val doc = DoclibDoc(
-      _id = parentID,
-      source = "local/resources/test.csv",
-      hash = "01234567890",
-      mimetype = "text/csv",
-      created = LocalDateTime.parse("2019-10-01T12:00:00"),
-      updated = LocalDateTime.parse("2019-10-01T12:00:01")
-    )
-    val mappingOneID = UUID.randomUUID
-    val mappingTwoID = UUID.randomUUID
-    val childOneID = new ObjectId
-    val childTwoId = new ObjectId
-    val childOnePath = "/a/path/to/file1.txt"
-    val childTwoPath = "/a/path/to/file2.txt"
-    val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
-    val mappingTwo = ParentChildMapping(_id = mappingTwoID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
-    val parentChildMappings = List[ParentChildMapping](mappingOne, mappingTwo)
-    val result = Await.result(mySpreadsheetHandler.persist(parentChildMappings), 5.seconds)
-
-    assert(result.exists(_.wasAcknowledged()))
-    val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
-    assert(findOne.head == mappingOne)
-    val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
-    assert(findTwo.head == mappingTwo)
-    val deleteResult = Await.result(mySpreadsheetHandler.deleteExistingDerivatives(doc), 5.seconds)
-
-    deleteResult should be (None)
   }
 
   override def beforeAll(): Unit = {
