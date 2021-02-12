@@ -26,10 +26,10 @@ The app allows runtime configuration via environment variables
 * **RABBITMQ_HOST** - host to connect to
 * **RABBITMQ_PORT** - optional: port to connect to (default: 5672)
 * **RABBITMQ_VHOST** - optional: vhost to connect to (default: /)
-* **RABBITMQ_EXCHANGE** - optional: exchange that the consumer should be bound to
+* **RABBITMQ_DOCLIB_EXCHANGE** - optional: exchange that the consumer should be bound to
 * **CONSUMER_QUEUE** - name of the queue to consume, will auto create and auto bind to exchange
 * **CONSUMER_CONCURRENCY** - optional: number of messages to handle concurrently (default: 1)
-* 
+
 
 #### These are the formats currently working with their mimetype counts in the document library. I've worked from the top down to make sure we can process as many docs as possible:
 
@@ -42,3 +42,9 @@ The app allows runtime configuration via environment variables
 
 * { "_id" : "application/vnd.oasis.opendocument.spreadsheet", "count" : 333 }
 * { "_id" : "application/vnd.oasis.opendocument.spreadsheet-template", "count" : 3 }
+
+## Testing
+```bash
+docker-compose up -d
+sbt clean test it:test
+```
