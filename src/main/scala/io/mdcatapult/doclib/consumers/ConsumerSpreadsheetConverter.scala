@@ -10,6 +10,7 @@ import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
+import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 
 object ConsumerSpreadsheetConverter extends AbstractConsumer {
@@ -30,10 +31,15 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
     val downstream: Queue[PrefetchMsg] = queue("downstream.queue")
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
 
+    val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+    val writeLimiter =  SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
+
     upstream.subscribe(
       SpreadsheetHandler.withWriteToFilesystem(
         downstream,
         supervisor,
+        readLimiter,
+        writeLimiter
       ).handle,
       config.getInt("consumer.concurrency")
     )

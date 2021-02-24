@@ -1,99 +1,80 @@
 package io.mdcatapult.doclib.handlers
 
-import java.util.UUID
-
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
-import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.exception.DoclibDocException
+import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.tabular.{Document => TabularDoc}
-import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.klein.queue.Sendable
-import io.mdcatapult.util.time.nowUtc
+import io.mdcatapult.util.concurrency.LimitedExecution
 import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
-import org.bson.types.ObjectId
+import io.mdcatapult.util.time.nowUtc
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.result.InsertManyResult
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object SpreadsheetHandler {
 
-  def withWriteToFilesystem(
-             downstream: Sendable[PrefetchMsg],
-             supervisor: Sendable[SupervisorMsg],
-           )
-           (implicit ex: ExecutionContext,
-            config: Config,
-            collection: MongoCollection[DoclibDoc],
-            derivativesCollection: MongoCollection[ParentChildMapping],
-           ): SpreadsheetHandler =
+  def withWriteToFilesystem(downstream: Sendable[PrefetchMsg],
+                            supervisor: Sendable[SupervisorMsg],
+                            readLimiter: LimitedExecution,
+                            writeLimiter: LimitedExecution)
+                           (implicit ex: ExecutionContext,
+                            config: Config,
+                            collection: MongoCollection[DoclibDoc],
+                            derivativesCollection: MongoCollection[ParentChildMapping]): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
       new ConsumerPaths(),
       new FileSheetWriter(config.getString("convert.format")),
+      readLimiter,
+      writeLimiter
     )
 }
 
-class SpreadsheetHandler(
-                          downstream: Sendable[PrefetchMsg],
-                          supervisor: Sendable[SupervisorMsg],
-                          paths: ConsumerPaths,
-                          sheetWriter: SheetWriter,
-                        )
+class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
+                         supervisor: Sendable[SupervisorMsg],
+                         paths: ConsumerPaths,
+                         sheetWriter: SheetWriter,
+                         val readLimiter: LimitedExecution,
+                         val writeLimiter: LimitedExecution)
                         (implicit ex: ExecutionContext,
                          config: Config,
                          collection: MongoCollection[DoclibDoc],
-                         derivativesCollection: MongoCollection[ParentChildMapping]) extends LazyLogging {
+                         derivativesCollection: MongoCollection[ParentChildMapping]) extends ConsumerHandler[DoclibMsg] {
 
-  private val docExtractor = DoclibDocExtractor()
-  private val version = Version.fromConfig(config)
-  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
+  private implicit val consumerNameAndQueue: ConsumerNameAndQueue =
+    ConsumerNameAndQueue(config.getString("consumer.name"), config.getString("consumer.queue"))
 
-  private val knownMimetypes =
-    Seq(
-      """application/vnd\.lotus.*""".r,
-      """application/vnd\.ms-excel.*""".r,
-      """application/vnd\.openxmlformats-officedocument.spreadsheetml.*""".r,
-      """application/vnd\.stardivision.calc""".r,
-      """application/vnd\.sun\.xml\.calc.*""".r,
-      """application/vnd\.oasis\.opendocument\.spreadsheet""".r,
-    )
-
-  case class MimetypeNotAllowed(doc: DoclibDoc,
-                                cause: Throwable = None.orNull)
-    extends DoclibDocException(
-      doc,
-      s"Document: ${doc._id.toHexString} - Mimetype '${doc.mimetype}' not allowed'",
-      cause)
+  private val version: Version = Version.fromConfig(config)
+  private val flagContext = new MongoFlagContext(consumerNameAndQueue.name, version, collection, nowUtc)
 
   /**
-   * default handler for messages
-   * @param msg DoclibMsg
-   * @param exchange String name of exchange message was sourced from
-   * @return
-   */
-  def handle(msg: DoclibMsg, exchange: String): Future[Option[Any]] = {
-    logger.info(f"RECEIVED: ${msg.id}")
-
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.name")))
+    * default handler for messages
+    *
+    * @param msg      DoclibMsg
+    * @param exchange String name of exchange message was sourced from
+    * @return
+    */
+  override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+    logReceived(msg.id)
 
     val spreadSheetProcess = for {
-      doc <- OptionT(collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption())
-      if !docExtractor.isRunRecently(doc)
+      doc <- OptionT(findDocById(collection, msg.id))
+      if !flagContext.isRunRecently(doc)
 
       started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
-      _ <- OptionT.fromOption[Future](validateMimetype(doc))
+      _ <- OptionT.fromOption[Future](Mimetypes.validateMimetype(doc))
       paths: List[String] <- OptionT.pure[Future](process(doc))
       if paths.nonEmpty
       derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
@@ -104,66 +85,36 @@ class SpreadsheetHandler(
           doc,
           state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
           noCheck = started.changesMade,
-        ))
-    } yield (paths, doc)
+        )
+      )
+    } yield HandlerResultWithDerivatives(doc, Some(paths))
 
-    spreadSheetProcess.value.andThen {
-      case Success(result) => result.map(r => {
-        supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-        incrementHandlerCount("success")
-        logger.info(f"COMPLETED: ${msg.id} - found & created ${r._1.length} derivatives")
-      })
-      case Failure(e: DoclibDocException) =>
-        incrementHandlerCount("doclib_doc_exception")
-        flagContext.error(e.getDoc, noCheck = true).andThen {
-          case Failure(e) => logger.error("error attempting error flag write", e)
-        }
-      case Failure(_) =>
-        incrementHandlerCount("unknown_error")
-
-        collection.find(equal("_id", new ObjectId(msg.id))).first().toFutureOption().onComplete {
-          case Failure(e) => logger.error(s"error retrieving document", e)
-          case Success(value) => value match {
-            case Some(foundDoc) =>
-              flagContext.error(foundDoc, noCheck = true).andThen {
-                case Failure(e) => logger.error("error attempting error flag write", e)
-              }
-            case None =>
-              val message = f"${msg.id} - no document found"
-              logger.error(message, new Exception(message))
-          }
-        }
-    }
-  }
-
-  private def incrementHandlerCount(labels: String*): Unit = {
-    val labelsWithDefaults = Seq(config.getString("consumer.name"), config.getString("consumer.queue")) ++ labels
-    handlerCount.labels(labelsWithDefaults: _*).inc()
-  }
-
-  def validateMimetype(doc: DoclibDoc): Option[Boolean] = {
-    if (knownMimetypes.exists(_.matches(doc.mimetype)))
-      Some(true)
-    else
-      throw MimetypeNotAllowed(doc)
+    postHandleProcess(
+      messageId = msg.id,
+      handlerResult = spreadSheetProcess.value,
+      flagContext = flagContext,
+      supervisor,
+      collection
+    )
   }
 
   /**
-   * send new file to prefetch queue
-   * @param source String
-   * @param doc Document
-   * @return
-   */
+    * send new file to prefetch queue
+    *
+    * @param source String
+    * @param doc    Document
+    * @return
+    */
   def enqueue(source: String, doc: DoclibDoc): String = {
     // Let prefetch know that it is a spreadsheet derivative
     val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "tabular.totsv"))
 
     downstream.send(PrefetchMsg(
-      source=source,
-      tags=doc.tags,
+      source = source,
+      tags = doc.tags,
       metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
-      derivative=Some(true),
-      origins=Some(List(Origin(
+      derivative = Some(true),
+      origins = Some(List(Origin(
         scheme = "mongodb",
         hostname = None,
         metadata = Some(List[MetaValueUntyped](
@@ -177,10 +128,11 @@ class SpreadsheetHandler(
   }
 
   /**
-   * generate new converted strings and save to the FS
-   * @param doc DoclibDoc
-   * @return List[String] list of new paths created
-   */
+    * generate new converted strings and save to the FS
+    *
+    * @param doc DoclibDoc
+    * @return List[String] list of new paths created
+    */
   def process(doc: DoclibDoc): List[String] = {
     val targetPath = paths.getTargetPath(doc.source, Try(config.getString("consumer.name")).toOption)
     val sourceAbsPath = paths.absolutePath(doc.source)
@@ -199,11 +151,12 @@ class SpreadsheetHandler(
   }
 
   /**
-   * Create list of parent child mappings
-   * @param doc DoclibDoc
-   * @param paths List[String]
-   * @return List[Derivative] unique list of derivatives
-   */
+    * Create list of parent child mappings
+    *
+    * @param doc   DoclibDoc
+    * @param paths List[String]
+    * @return List[Derivative] unique list of derivatives
+    */
   def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
     paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Try(config.getString("consumer.name")).toOption))
 

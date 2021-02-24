@@ -4,7 +4,6 @@ import java.io.File
 import java.time.LocalDateTime
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit}
 import better.files.Dsl.pwd
@@ -17,6 +16,7 @@ import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
+import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import io.mdcatapult.util.path.DirectoryDeleter.deleteDirectories
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
@@ -77,8 +77,10 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   private val downstream = mock[QP]
   private val upstream = mock[QS]
+  private val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+  private val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
 
-  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream)
+  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream, readLimiter, writeLimiter)
 
   "A spreadsheet can be converted" should "be validated" in {
     sheets.foreach(x => {
