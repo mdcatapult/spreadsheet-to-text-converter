@@ -44,7 +44,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
-  implicit val config: Config = ConfigFactory.load("src/it/resources/application.conf")
+  implicit val config: Config = ConfigFactory.load()
 
   import system.dispatcher
 
