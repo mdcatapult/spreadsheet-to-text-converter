@@ -6,7 +6,7 @@ import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
@@ -33,6 +33,14 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
     val writeLimiter =  SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
+
+    implicit val consumerNameAndQueue: ConsumerConfig =
+      ConsumerConfig(
+        config.getString("consumer.name"),
+        config.getInt("consumer.concurrency"),
+        config.getString("consumer.queue"),
+        config.getString("consumer.exchange")
+      )
 
     upstream.subscribe(
       SpreadsheetHandler.withWriteToFilesystem(

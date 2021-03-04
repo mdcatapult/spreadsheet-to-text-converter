@@ -12,7 +12,7 @@ import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
@@ -44,7 +44,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
-  implicit val config: Config = ConfigFactory.load()
+  implicit val config: Config = ConfigFactory.load("src/it/resources/application.conf")
 
   import system.dispatcher
 
@@ -79,6 +79,14 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   private val upstream = mock[QS]
   private val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
   private val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
+
+  implicit val consumerNameAndQueue: ConsumerConfig =
+    ConsumerConfig(
+      config.getString("consumer.name"),
+      config.getInt("consumer.concurrency"),
+      config.getString("consumer.queue"),
+      config.getString("consumer.exchange")
+    )
 
   private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream, readLimiter, writeLimiter)
 

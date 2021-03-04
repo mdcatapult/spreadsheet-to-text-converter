@@ -9,7 +9,7 @@ import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.{Mimetypes, SpreadsheetHandler}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{ConsumerConfig, Derivative, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
@@ -58,6 +58,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |    database: "admin"
       |    hosts: ["localhost"]
       |  }
+      |  read-limit = 100
+      |  write-limit = 50
       |}
       |version {
       |  number = "2.0.17-SNAPSHOT",
@@ -69,10 +71,20 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |consumer {
       |  name : spreadsheet-converter
       |  queue : spreadsheet-converter
+      |  exchange : doclib
+      |  concurrency: 5
       |}
     """.stripMargin)
 
   import system.dispatcher
+
+  implicit val consumerNameAndQueue: ConsumerConfig =
+    ConsumerConfig(
+      config.getString("consumer.name"),
+      config.getInt("consumer.concurrency"),
+      config.getString("consumer.queue"),
+      config.getString("consumer.exchange")
+    )
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = mock[JMongoCollection[DoclibDoc]]
@@ -81,8 +93,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   val wrappedDerivativesCollection: JMongoCollection[ParentChildMapping] = mock[JMongoCollection[ParentChildMapping]]
   implicit val derivativesCollection: MongoCollection[ParentChildMapping] = MongoCollection[ParentChildMapping](wrappedDerivativesCollection)
 
-  val readLimiter = SemaphoreLimitedExecution.create(1)
-  val writeLimiter = SemaphoreLimitedExecution.create(1)
+  private val readLimiter = SemaphoreLimitedExecution.create(1)
+  private val writeLimiter = SemaphoreLimitedExecution.create(1)
 
 
   // Fake the queues, we are not interacting with them
@@ -118,6 +130,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   private val downstream = mock[QP]
   private val supervisor = mock[QS]
+
 
   private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor, readLimiter, writeLimiter)
 

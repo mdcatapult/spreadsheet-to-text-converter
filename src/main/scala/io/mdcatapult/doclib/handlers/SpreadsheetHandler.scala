@@ -4,7 +4,7 @@ import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -31,7 +31,8 @@ object SpreadsheetHandler {
                            (implicit ex: ExecutionContext,
                             config: Config,
                             collection: MongoCollection[DoclibDoc],
-                            derivativesCollection: MongoCollection[ParentChildMapping]): SpreadsheetHandler =
+                            derivativesCollection: MongoCollection[ParentChildMapping],
+                            consumerConfig: ConsumerConfig): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
@@ -51,13 +52,12 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                         (implicit ex: ExecutionContext,
                          config: Config,
                          collection: MongoCollection[DoclibDoc],
-                         derivativesCollection: MongoCollection[ParentChildMapping]) extends ConsumerHandler[DoclibMsg] {
+                         derivativesCollection: MongoCollection[ParentChildMapping],
+                         consumerConfig: ConsumerConfig) extends AbstractHandler[DoclibMsg] {
 
-  private implicit val consumerNameAndQueue: ConsumerNameAndQueue =
-    ConsumerNameAndQueue(config.getString("consumer.name"), config.getString("consumer.queue"))
 
   private val version: Version = Version.fromConfig(config)
-  private val flagContext = new MongoFlagContext(consumerNameAndQueue.name, version, collection, nowUtc)
+  private val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
 
   /**
     * default handler for messages
@@ -90,7 +90,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     } yield HandlerResultWithDerivatives(doc, Some(paths))
 
     postHandleProcess(
-      messageId = msg.id,
+      documentId = msg.id,
       handlerResult = spreadSheetProcess.value,
       flagContext = flagContext,
       supervisor,
