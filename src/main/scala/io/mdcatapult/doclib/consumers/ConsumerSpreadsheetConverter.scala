@@ -13,6 +13,8 @@ import io.mdcatapult.util.admin.{Server => AdminServer}
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 
+import scala.util.Try
+
 object ConsumerSpreadsheetConverter extends AbstractConsumer {
 
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
@@ -26,7 +28,6 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
-    /** initialise queues **/
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
     val downstream: Queue[PrefetchMsg] = queue("downstream.queue")
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
@@ -39,7 +40,7 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
         config.getString("consumer.name"),
         config.getInt("consumer.concurrency"),
         config.getString("consumer.queue"),
-        config.getString("consumer.exchange")
+        Try(config.getString("consumer.exchange")).toOption
       )
 
     upstream.subscribe(
