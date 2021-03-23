@@ -4,7 +4,7 @@ import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -43,6 +43,9 @@ object SpreadsheetHandler {
     )
 }
 
+case class SpreadSheetHandlerResult(doclibDoc: DoclibDoc,
+                                    newPathsFromSpreadsheet: List[String]) extends HandlerResult
+
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          supervisor: Sendable[SupervisorMsg],
                          paths: ConsumerPaths,
@@ -63,10 +66,9 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     * default handler for messages
     *
     * @param msg      DoclibMsg
-    * @param exchange String name of exchange message was sourced from
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+  override def handle(msg: DoclibMsg): Future[Option[SpreadSheetHandlerResult]] = {
     logReceived(msg.id)
 
     val spreadSheetProcess = for {
@@ -87,7 +89,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
           noCheck = started.changesMade,
         )
       )
-    } yield HandlerResultWithDerivatives(doc, Some(paths))
+    } yield SpreadSheetHandlerResult(doc, paths)
 
     postHandleProcess(
       documentId = msg.id,
