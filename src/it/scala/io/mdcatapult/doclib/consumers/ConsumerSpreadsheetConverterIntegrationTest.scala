@@ -12,7 +12,7 @@ import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
@@ -80,8 +80,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   private val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
   private val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
 
-  implicit val consumerNameAndQueue: ConsumerConfig =
-    ConsumerConfig(
+  implicit val consumerNameAndQueue: AppConfig =
+    AppConfig(
       config.getString("consumer.name"),
       config.getInt("consumer.concurrency"),
       config.getString("consumer.queue"),

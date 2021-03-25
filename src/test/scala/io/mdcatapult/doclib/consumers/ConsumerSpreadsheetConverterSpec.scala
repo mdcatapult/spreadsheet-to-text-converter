@@ -9,7 +9,7 @@ import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.handlers.{Mimetypes, SpreadsheetHandler}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{ConsumerConfig, Derivative, DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, Derivative, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
@@ -80,8 +80,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
 
   import system.dispatcher
 
-  implicit val consumerNameAndQueue: ConsumerConfig =
-    ConsumerConfig(
+  implicit val consumerNameAndQueue: AppConfig =
+    AppConfig(
       config.getString("consumer.name"),
       config.getInt("consumer.concurrency"),
       config.getString("consumer.queue"),

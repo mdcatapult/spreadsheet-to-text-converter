@@ -32,7 +32,7 @@ object SpreadsheetHandler {
                             config: Config,
                             collection: MongoCollection[DoclibDoc],
                             derivativesCollection: MongoCollection[ParentChildMapping],
-                            consumerConfig: ConsumerConfig): SpreadsheetHandler =
+                            appConfig: AppConfig): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
@@ -56,11 +56,11 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          config: Config,
                          collection: MongoCollection[DoclibDoc],
                          derivativesCollection: MongoCollection[ParentChildMapping],
-                         consumerConfig: ConsumerConfig) extends AbstractHandler[DoclibMsg] {
+                         appConfig: AppConfig) extends AbstractHandler[DoclibMsg] {
 
 
   private val version: Version = Version.fromConfig(config)
-  private val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
+  private val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
   /**
     * default handler for messages
