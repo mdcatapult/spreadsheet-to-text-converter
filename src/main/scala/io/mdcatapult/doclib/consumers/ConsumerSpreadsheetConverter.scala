@@ -6,11 +6,14 @@ import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
+import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
+
+import scala.util.Try
 
 object ConsumerSpreadsheetConverter extends AbstractConsumer {
 
@@ -25,15 +28,27 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer {
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
-    /** initialise queues **/
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
     val downstream: Queue[PrefetchMsg] = queue("downstream.queue")
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
+
+    val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+    val writeLimiter =  SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
+
+    implicit val consumerNameAndQueue: AppConfig =
+      AppConfig(
+        config.getString("consumer.name"),
+        config.getInt("consumer.concurrency"),
+        config.getString("consumer.queue"),
+        Try(config.getString("consumer.exchange")).toOption
+      )
 
     upstream.subscribe(
       SpreadsheetHandler.withWriteToFilesystem(
         downstream,
         supervisor,
+        readLimiter,
+        writeLimiter
       ).handle,
       config.getInt("consumer.concurrency")
     )

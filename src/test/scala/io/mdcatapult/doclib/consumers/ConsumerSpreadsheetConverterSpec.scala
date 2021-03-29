@@ -2,17 +2,17 @@ package io.mdcatapult.doclib.consumers
 
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.mongodb.reactivestreams.client.{MongoCollection => JMongoCollection}
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.typesafe.config.{Config, ConfigFactory}
-import io.mdcatapult.doclib.handlers.SpreadsheetHandler
+import io.mdcatapult.doclib.handlers.{Mimetypes, SpreadsheetHandler}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, Derivative, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
+import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
@@ -20,6 +20,8 @@ import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpecLike
+
+import scala.util.Try
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
@@ -58,6 +60,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |    database: "admin"
       |    hosts: ["localhost"]
       |  }
+      |  read-limit = 100
+      |  write-limit = 50
       |}
       |version {
       |  number = "2.0.17-SNAPSHOT",
@@ -67,11 +71,22 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
       |  hash =  "ca00f0cf"
       |}
       |consumer {
-      |  name = spreadsheet-converter
+      |  name : spreadsheet-converter
+      |  queue : spreadsheet-converter
+      |  exchange : doclib
+      |  concurrency: 5
       |}
     """.stripMargin)
 
   import system.dispatcher
+
+  implicit val consumerNameAndQueue: AppConfig =
+    AppConfig(
+      config.getString("consumer.name"),
+      config.getInt("consumer.concurrency"),
+      config.getString("consumer.queue"),
+      Try(config.getString("consumer.exchange")).toOption
+    )
 
   implicit val mongoCodecs: CodecRegistry = MongoCodecs.get
   val wrappedCollection: JMongoCollection[DoclibDoc] = mock[JMongoCollection[DoclibDoc]]
@@ -80,12 +95,17 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   val wrappedDerivativesCollection: JMongoCollection[ParentChildMapping] = mock[JMongoCollection[ParentChildMapping]]
   implicit val derivativesCollection: MongoCollection[ParentChildMapping] = MongoCollection[ParentChildMapping](wrappedDerivativesCollection)
 
+  private val readLimiter = SemaphoreLimitedExecution.create(1)
+  private val writeLimiter = SemaphoreLimitedExecution.create(1)
+
+
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
     val name = "prefetch-message-queue"
     val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
-    def send(envelope: PrefetchMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+
+    def send(envelope: PrefetchMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
   }
@@ -94,7 +114,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val name = "doclib-message-queue"
     val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
-    def send(envelope: DoclibMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+
+    def send(envelope: DoclibMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
   }
@@ -104,7 +125,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
     val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
 
-    def send(envelope: SupervisorMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: SupervisorMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
       sent.set(sent.get() + 1)
     }
   }
@@ -112,7 +133,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   private val downstream = mock[QP]
   private val supervisor = mock[QS]
 
-  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
+
+  private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor, readLimiter, writeLimiter)
 
   private val validDoc = DoclibDoc(
     _id = new ObjectId("5d970056b3e8083540798f90"),
@@ -133,12 +155,12 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   )
 
   "A doclib doc with a valid mimetype" should "be validated" in {
-    assert(spreadsheetHandler.validateMimetype(validDoc).get)
+    assert(Mimetypes.validateMimetype(validDoc).get)
   }
 
   "A doclib doc with an invalid mimetype" should "not be validated" in {
     val caught = intercept[Exception] {
-      spreadsheetHandler.validateMimetype(invalidDoc)
+      Mimetypes.validateMimetype(invalidDoc)
     }
     assert(caught.getMessage == "Document: 5d970056b3e8083540798f90 - Mimetype 'text/plain' not allowed'")
   }
@@ -199,6 +221,8 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |    database: "admin"
         |    hosts: ["localhost"]
         |  }
+        |  read-limit = 100
+        |  write-limit = 50
         |}
         |version {
         |  number = "2.0.17-SNAPSHOT",
@@ -208,11 +232,12 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
         |  hash =  "ca00f0cf"
         |}
         |consumer {
-        |  name = "spreadsheet-converter"
+        |  name : "spreadsheet-converter"
+        |  queue: "spreadsheet-converter"
         |}
     """.stripMargin)
 
-    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor)
+    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, supervisor, readLimiter, writeLimiter)
 
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
@@ -235,7 +260,7 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   "Enqueue" should "send a message to the prefetch queue" in {
     val qp = new QP
 
-    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(qp, supervisor)
+    val mySpreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(qp, supervisor, readLimiter, writeLimiter)
 
     val derivatives: List[Derivative] = List[Derivative](
       Derivative(`type` = "unarchive", path = "ingress/derivatives/remote/a_derivative.txt"),
