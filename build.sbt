@@ -39,6 +39,7 @@ lazy val root = (project in file("."))
       val configVersion = "1.4.1"
       val akkaVersion = "2.6.18"
       val catsVersion = "2.6.1"
+//      Apache poi & poi-ooxml are now at 5.x but poi-ooxml-schemas is only at 4.1.2 and causes dedup issues with poi-ooxml
       val apachePoiVersion = "4.1.2"
       val scalacticVersion = "3.2.10"
       val scalaTestVersion = "3.2.11"
