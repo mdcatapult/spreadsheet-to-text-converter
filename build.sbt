@@ -1,12 +1,6 @@
 import sbtrelease.ReleaseStateTransformations._
 import Release._
 
-lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.6.4"
-lazy val catsVersion = "2.1.0"
-lazy val apachePoiVersion = "4.1.2"
-lazy val doclibCommonVersion = "3.0.2"
-
 val meta = """META.INF(.)*""".r
 
 lazy val IntegrationTest = config("it") extend Test
@@ -23,8 +17,7 @@ lazy val root = (project in file("."))
       "-deprecation",
       "-explaintypes",
       "-feature",
-      "-Xlint",
-      "-Xfatal-warnings",
+      "-Xlint"
     ),
     useCoursier      := false,
     resolvers         ++= Seq(
@@ -40,24 +33,39 @@ lazy val root = (project in file("."))
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
     },
-    libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.1.1",
-      "org.scalatest" %% "scalatest"                  % "3.1.1" % "it,test",
-      "org.scalamock" %% "scalamock"                  % "4.4.0" % "it,test",
+    libraryDependencies ++= {
+      val doclibCommonVersion = "3.1.1"
+
+      val configVersion = "1.4.1"
+      val akkaVersion = "2.6.18"
+      val catsVersion = "2.6.1"
+//      Apache poi & poi-ooxml are now at 5.x but poi-ooxml-schemas is only at 4.1.2 and causes dedup issues with poi-ooxml
+      val apachePoiVersion = "4.1.2"
+      val scalacticVersion = "3.2.10"
+      val scalaTestVersion = "3.2.11"
+      val scalaMockVersion = "5.2.0"
+      val scalaLoggingVersion = "3.9.4"
+      val logbackClassicVersion = "1.2.10"
+      val sodsVersion = "1.4.0"
+
+      Seq(
+      "org.scalactic" %% "scalactic"                  % scalacticVersion,
+      "org.scalatest" %% "scalatest"                  % scalaTestVersion % "it,test",
+      "org.scalamock" %% "scalamock"                  % scalaMockVersion % "it,test",
       "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
-      "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
       "com.typesafe" % "config"                       % configVersion,
-      "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "org.apache.poi" % "poi"                        % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiVersion,
-      "com.github.miachm.sods" % "SODS" % "1.2.2",
-    ).map(
+      "com.github.miachm.sods" % "SODS"               % sodsVersion
+    )
+    }.map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
         .exclude(org = "com.typesafe.play", name = "shaded-asynchttpclient")
@@ -74,6 +82,8 @@ lazy val root = (project in file("."))
       case PathList("javax", "activation", _*) => MergeStrategy.first
       case PathList("org", "apache", "commons", _*) => MergeStrategy.first
       case PathList("com", "ctc", "wstx", _*) => MergeStrategy.first
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "util", "control", "compat", _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
       case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
@@ -84,6 +94,7 @@ lazy val root = (project in file("."))
       case n if n.startsWith("application.conf") => MergeStrategy.first
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case n if n.startsWith("logback.xml") => MergeStrategy.first
+      case n if n.startsWith("scala-collection-compat.properties") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
