@@ -1,11 +1,17 @@
 package io.mdcatapult.doclib.tabular
 
-import java.nio.file.Paths
+import akka.actor.ActorSystem
+import akka.testkit.TestKit
+import com.typesafe.config.ConfigFactory
 
-import org.scalatest.flatspec.AnyFlatSpec
+import java.nio.file.Paths
+import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
 
-class DocumentSpec extends AnyFlatSpec with Matchers {
+class DocumentSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
+  """
+  akka.loggers = ["akka.testkit.TestEventListener"]
+  """))) with AnyFlatSpecLike with Matchers {
 
   val expected = "\"Row1Cell1\"\t\"Row1Cell2\"\t\"Row1Cell3\"\n\"Row2Cell1\"\t\t\"Row2Cell3\"\n\n\"FORMULA\"\t3\t2.1\n\"Cell with \\\"quoted\\\" text\"\n"
 
@@ -16,7 +22,7 @@ class DocumentSpec extends AnyFlatSpec with Matchers {
     val testFile = getClass.getResource(testFileName)
     val path = Paths.get(testFile.toURI)
 
-    new Document(path).convertTo("tsv")
+    new Document(path).convertTo("tsv").get
   }
 
   "A Document" should "parse an XSLX document" in {

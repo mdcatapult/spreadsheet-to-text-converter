@@ -1,5 +1,7 @@
 package io.mdcatapult.doclib.handlers
 
+import akka.actor.ActorSystem
+//import akka.pattern.CircuitBreaker
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
@@ -19,6 +21,7 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
 
 import java.util.UUID
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -32,7 +35,8 @@ object SpreadsheetHandler {
                             config: Config,
                             collection: MongoCollection[DoclibDoc],
                             derivativesCollection: MongoCollection[ParentChildMapping],
-                            appConfig: AppConfig): SpreadsheetHandler =
+                            appConfig: AppConfig,
+                            system: ActorSystem): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
@@ -56,7 +60,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          config: Config,
                          collection: MongoCollection[DoclibDoc],
                          derivativesCollection: MongoCollection[ParentChildMapping],
-                         appConfig: AppConfig) extends AbstractHandler[DoclibMsg] {
+                         appConfig: AppConfig,
+                         system: ActorSystem) extends AbstractHandler[DoclibMsg] {
 
 
   private val version: Version = Version.fromConfig(config)
@@ -136,12 +141,17 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     * @return List[String] list of new paths created
     */
   def process(doc: DoclibDoc): List[String] = {
+//    println(s"Max timeout ${config.getInt("totsv.max-timeout")}")
+//    val breaker =
+//      CircuitBreaker(system.scheduler, maxFailures = config.getInt("totsv.max-timeout-failures"), callTimeout = config.getInt("totsv.max-timeout").seconds, resetTimeout = config.getInt("totsv.max-timeout-reset").minute)
+//        .onOpen(throw new Exception("Taking too long"))
     val targetPath = paths.getTargetPath(doc.source, Try(config.getString("consumer.name")).toOption)
     val sourceAbsPath = paths.absolutePath(doc.source)
 
-    val d = new TabularDoc(sourceAbsPath)
+    val d = new TabularDoc(sourceAbsPath)(system)
 
-    d.convertTo(sheetWriter.convertToFormat)
+//    breaker.withSyncCircuitBreaker(
+      d.convertTo(sheetWriter.convertToFormat).get
       .filter(_.content.length > 0)
       .map(s => sheetWriter.writeSheet(s, paths.absolutePath(targetPath)))
       .filter(_.path.isDefined)
@@ -150,6 +160,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
         val root: ScalaFile = paths.absoluteRootPath
         sheet.replaceFirst(s"$root/", "")
       })
+//    )
   }
 
   /**

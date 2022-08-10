@@ -1,7 +1,8 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import java.io.File
+import akka.actor.ActorSystem
 
+import java.io.File
 import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
 import org.apache.poi.ss.usermodel.{CellType, Workbook, WorkbookFactory}
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -31,7 +32,7 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
     }
   }
 
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n")): List[TabSheet] = {
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem): Option[List[TabSheet]] = {
     val wb = getWorkbook
     val result: List[TabSheet] = wb.sheetIterator().asScala.zipWithIndex.map(sheet => {
       TabSheet(
@@ -52,6 +53,6 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
       )
     }).toList
     wb.close()
-    result
+    Some(result)
   }
 }
