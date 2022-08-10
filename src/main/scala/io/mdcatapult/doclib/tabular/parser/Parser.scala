@@ -1,6 +1,7 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
+import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 
 trait Parser {
@@ -12,5 +13,5 @@ trait Parser {
     * @param lineDelimiter Option[String]
     * @return List[Sheet]
     */
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem): Option[List[Sheet]]
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]]
 }

@@ -42,7 +42,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   with ScalaFutures
   with BeforeAndAfterAll {
 
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2, "/difficult.xls" -> 1)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2, "/test.xlsx" -> 3)
 
   implicit val config: Config = ConfigFactory.load()
 
@@ -90,7 +90,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
 
   private val spreadsheetHandler = SpreadsheetHandler.withWriteToFilesystem(downstream, upstream, readLimiter, writeLimiter)
 
-  "A spreadsheet can be converted" should "be validated" in {
+  "A spreadsheet can be converted and" should "be validated" in {
     sheets.foreach(x => {
       val path = new File("local", x._1)
       val doc = DoclibDoc(
@@ -141,6 +141,23 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     assert(findOne.head == mappingOne)
     val findTwo = Await.result(derivativesCollection.find(Mequal("_id", mappingTwoID)).toFuture(), 5.seconds)
     assert(findTwo.head == mappingTwo)
+  }
+
+  "Processing a sheet" can "timeout" in {
+    val path = new File("local", "/difficult.xls")
+    val doc = DoclibDoc(
+      _id = new ObjectId("5d970056b3e8083540798f90"),
+      source = path.toString,
+      hash = "01234567890",
+      mimetype = "text/csv",
+      created = LocalDateTime.parse("2019-10-01T12:00:00"),
+      updated = LocalDateTime.parse("2019-10-01T12:00:01")
+    )
+
+    val thrown = intercept[Exception] {
+      spreadsheetHandler.process(doc)
+    }
+    assert(thrown.getMessage === "Circuit Breaker Timed out.")
   }
 
   override def beforeAll(): Unit = {

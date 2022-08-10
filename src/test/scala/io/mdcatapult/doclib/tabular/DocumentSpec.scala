@@ -2,7 +2,7 @@ package io.mdcatapult.doclib.tabular
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 import java.nio.file.Paths
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
@@ -12,6 +12,58 @@ class DocumentSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", Confi
   """
   akka.loggers = ["akka.testkit.TestEventListener"]
   """))) with AnyFlatSpecLike with Matchers {
+
+  implicit var config: Config = ConfigFactory.parseString(
+    """
+      |doclib {
+      |  root: "test-assets"
+      |  local {
+      |    target-dir: "local"
+      |    temp-dir: "ingress"
+      |  }
+      |  remote {
+      |    target-dir: "remote"
+      |    temp-dir: "remote-ingress"
+      |  }
+      |  archive {
+      |    target-dir: "archive"
+      |  }
+      |  derivative {
+      |    target-dir: "derivatives"
+      |  }
+      |}
+      |convert {
+      |  format: "tsv"
+      |}
+      |totsv {
+      |  max-timeout: 10000
+      |}
+      |mongo {
+      |  doclib-database: "prefetch-test"
+      |  documents-collection: "documents"
+      |  connection {
+      |    username: "doclib"
+      |    password: "doclib"
+      |    database: "admin"
+      |    hosts: ["localhost"]
+      |  }
+      |  read-limit = 100
+      |  write-limit = 50
+      |}
+      |version {
+      |  number = "2.0.17-SNAPSHOT",
+      |  major = 2,
+      |  minor =  0,
+      |  patch = 17,
+      |  hash =  "ca00f0cf"
+      |}
+      |consumer {
+      |  name : spreadsheet-converter
+      |  queue : spreadsheet-converter
+      |  exchange : doclib
+      |  concurrency: 5
+      |}
+    """.stripMargin)
 
   val expected = "\"Row1Cell1\"\t\"Row1Cell2\"\t\"Row1Cell3\"\n\"Row2Cell1\"\t\t\"Row2Cell3\"\n\n\"FORMULA\"\t3\t2.1\n\"Cell with \\\"quoted\\\" text\"\n"
 

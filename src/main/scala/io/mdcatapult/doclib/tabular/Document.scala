@@ -1,6 +1,7 @@
 package io.mdcatapult.doclib.tabular
 
 import akka.actor.ActorSystem
+import com.typesafe.config.Config
 //import akka.pattern.CircuitBreaker
 
 import java.io.File
@@ -15,7 +16,7 @@ import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
   * Simple control class to act as an interface between the application and parsers
   * @param path Path
   */
-class Document(path: Path)(implicit system: ActorSystem) {
+class Document(path: Path)(implicit system: ActorSystem, config: Config) {
   private val file: File = new File(path.toUri)
 
   private val extension = ScalaFile(path.toString).extension
@@ -46,7 +47,7 @@ class Document(path: Path)(implicit system: ActorSystem) {
       override def parse(
                           fieldDelimiter: String,
                           stringDelimiter: String,
-                          lineDelimiter: Option[String])(implicit system: ActorSystem): Option[List[TabSheet]] =
+                          lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Option[List[TabSheet]] =
         try {
           expectedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
         } catch {
@@ -59,14 +60,9 @@ class Document(path: Path)(implicit system: ActorSystem) {
         }
     }
 
-  def convertTo(format: String): Option[List[TabSheet]] = {
-//    val breaker =
-//      CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = 10.seconds, resetTimeout = 1.minute)
-//        .onOpen(throw new Exception("Taking way too long"))
-    format match {
+  def convertTo(format: String): Option[List[TabSheet]] = format match {
       case "tsv" => nestedParser.parse(fieldDelimiter = "\t", stringDelimiter = "\"")
       case "csv" => nestedParser.parse(fieldDelimiter = ",", stringDelimiter = "\"")
       case _ => throw new Exception(f"Format $format not currently supported")
     }
-  }
 }

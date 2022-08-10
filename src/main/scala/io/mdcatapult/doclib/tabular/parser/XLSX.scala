@@ -2,6 +2,7 @@ package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
 import akka.pattern.CircuitBreaker
+import com.typesafe.config.Config
 
 import java.io.File
 import io.mdcatapult.doclib.tabular.Sheet
@@ -19,54 +20,49 @@ import scala.jdk.CollectionConverters._
 
 class XLSX(file: File) extends Parser {
 
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem): Option[List[Sheet]] = {
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
 
-    println("Parsing xlsx")
     val pkg: OPCPackage = OPCPackage.open(file, PackageAccess.READ)
-
+    val breaker =
+      CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = config.getInt("totsv.max-timeout").milliseconds, resetTimeout = 1.minute)
+        .onOpen({
+          pkg.close()
+        })
     try {
-      val reader: XSSFReader = new XSSFReader(pkg)
-      val sharedStrings = new ReadOnlySharedStringsTable(pkg)
-      val styles: StylesTable = reader.getStylesTable
-      println("Parsing xlsx 1")
+      breaker.withSyncCircuitBreaker({
+        val reader: XSSFReader = new XSSFReader(pkg)
+        val sharedStrings = new ReadOnlySharedStringsTable(pkg)
+        val styles: StylesTable = reader.getStylesTable
 
-      val it: SheetIterator = reader.getSheetsData.asInstanceOf[SheetIterator]
-      println("Parsing xlsx 2")
+        val it: SheetIterator = reader.getSheetsData.asInstanceOf[SheetIterator]
 
-      val sheets = it.asScala.zipWithIndex.map(sh => {
+        val sheets = it.asScala.zipWithIndex.map(sh => {
 
-        val contents = new StringBuilder()
-        val p = XMLHelper.newXMLReader()
-        p.setContentHandler(new XSSFSheetXMLHandler(
-          styles,
-          null,
-          sharedStrings,
-          new XlsxSheetHandler(contents, fieldDelimiter, stringDelimiter),
-          new DataFormatter(),
-          false))
-        val sheetSource: InputSource = new InputSource(sh._1)
-        println("Parsing xlsx 3")
+          val contents = new StringBuilder()
+          val p = XMLHelper.newXMLReader()
+          p.setContentHandler(new XSSFSheetXMLHandler(
+            styles,
+            null,
+            sharedStrings,
+            new XlsxSheetHandler(contents, fieldDelimiter, stringDelimiter),
+            new DataFormatter(),
+            false))
+          val sheetSource: InputSource = new InputSource(sh._1)
 
-        val breaker =
-          CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = 10.seconds, resetTimeout = 1.minute)
-            .onOpen(throw new Exception("Taking totally way too long"))
-        println("Parsing xlsx 4")
+          p.parse(sheetSource)
 
-        breaker.withSyncCircuitBreaker(p.parse(sheetSource))
+          Sheet(
+            sh._2,
+            it.getSheetName,
+            contents.toString()
+          )
+        }).toList
 
-        Sheet(
-          sh._2,
-          it.getSheetName,
-          contents.toString()
-        )
-      }).toList
-      println("Parsing xlsx 5")
-
-      Some(sheets)
+        Some(sheets)
+      })
     } catch {
-      case _: Throwable => {
-        println("It's an exception")
-        None
+      case e: Throwable => {
+        throw e
       }
 
     } finally {

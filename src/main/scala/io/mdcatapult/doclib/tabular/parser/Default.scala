@@ -1,6 +1,7 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
+import com.typesafe.config.Config
 
 import java.io.File
 import io.mdcatapult.doclib.tabular.{Sheet => TabSheet}
@@ -32,7 +33,7 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
     }
   }
 
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem): Option[List[TabSheet]] = {
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[TabSheet]] = {
     val wb = getWorkbook
     val result: List[TabSheet] = wb.sheetIterator().asScala.zipWithIndex.map(sheet => {
       TabSheet(

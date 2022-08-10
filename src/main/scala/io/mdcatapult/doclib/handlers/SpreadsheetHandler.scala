@@ -141,17 +141,12 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     * @return List[String] list of new paths created
     */
   def process(doc: DoclibDoc): List[String] = {
-//    println(s"Max timeout ${config.getInt("totsv.max-timeout")}")
-//    val breaker =
-//      CircuitBreaker(system.scheduler, maxFailures = config.getInt("totsv.max-timeout-failures"), callTimeout = config.getInt("totsv.max-timeout").seconds, resetTimeout = config.getInt("totsv.max-timeout-reset").minute)
-//        .onOpen(throw new Exception("Taking too long"))
     val targetPath = paths.getTargetPath(doc.source, Try(config.getString("consumer.name")).toOption)
     val sourceAbsPath = paths.absolutePath(doc.source)
 
-    val d = new TabularDoc(sourceAbsPath)(system)
+    val d = new TabularDoc(sourceAbsPath)(system, config)
 
-//    breaker.withSyncCircuitBreaker(
-      d.convertTo(sheetWriter.convertToFormat).get
+    d.convertTo(sheetWriter.convertToFormat).get
       .filter(_.content.length > 0)
       .map(s => sheetWriter.writeSheet(s, paths.absolutePath(targetPath)))
       .filter(_.path.isDefined)
@@ -160,7 +155,6 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
         val root: ScalaFile = paths.absoluteRootPath
         sheet.replaceFirst(s"$root/", "")
       })
-//    )
   }
 
   /**

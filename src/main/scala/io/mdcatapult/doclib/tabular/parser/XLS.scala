@@ -1,15 +1,15 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
-import akka.pattern.{CircuitBreaker, CircuitBreakerOpenException}
-
-import java.io.{File, FileInputStream}
+import akka.pattern.CircuitBreaker
+import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 import org.apache.poi.hssf.eventusermodel._
 import org.apache.poi.hssf.eventusermodel.dummyrecord.{LastCellOfRowDummyRecord, MissingCellDummyRecord, MissingRowDummyRecord}
-import org.apache.poi.hssf.record.{SSTRecord, _}
+import org.apache.poi.hssf.record._
 import org.apache.poi.poifs.filesystem.{DocumentInputStream, POIFSFileSystem}
 
+import java.io.{File, FileInputStream}
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 
@@ -34,42 +34,29 @@ class XLS(file: File) extends Parser with HSSFListener {
   val workbookBuildingListener = new EventWorkbookBuilder.SheetRecordCollectingListener(formatListener)
 
 
-  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem): Option[List[Sheet]] = {
-    println("parsing xls")
+  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
     try {
       val breaker =
-        CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = 2.seconds, resetTimeout = 1.minute)
+        CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = config.getInt("totsv.max-timeout").milliseconds, resetTimeout = 1.minute)
           .onOpen({
+            // The conversion has timed out so close it. The circuit breaker will throw an exception
+            // It should be a CircuitBreaker with "Circuit Breaker Timed out" message
             poifs.close()
-            println("in the breaker")
-//            throw new Exception("Taking totally xls way too long")
           })
-      println("parsing xls 1")
       breaker.withSyncCircuitBreaker({
         fieldDelimiter = fieldDel
         stringDelimiter = stringDel
         lineDelimiter = lineDel
         val factory = new HSSFEventFactory
         val request = new HSSFRequest
-        println("parsing xls 2")
 
         request.addListenerForAllRecords(formatListener)
-        println("parsing xls 3")
 
-        //    request.addListenerForAllRecords(workbookBuildingListener)
-//        breaker.withSyncCircuitBreaker(factory.processWorkbookEvents(request, poifs))
         factory.processWorkbookEvents(request, poifs)
-
-        println("parsing xls 4")
-
-        //      poifs.close()
         Some(output.toList)
       })
     } catch {
-      case e: Throwable => {
-        println(s"xls boom ${e.getClass}")
-        throw e
-      }
+      case e: Throwable => throw e
     } finally {
       poifs.close()
     }
