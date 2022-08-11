@@ -9,6 +9,7 @@ import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 
 import scala.collection.immutable.List
+import scala.util.Try
 
 class ODF(file: File) extends Parser {
   /**
@@ -19,12 +20,12 @@ class ODF(file: File) extends Parser {
    * @param lineDelimiter   Option[String]
    * @return List[Sheet]
    */
-  override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
+  override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
     val spreadsheet = new SpreadSheet(file)
     val sheets = for {
       sheetCount <- (0 until spreadsheet.getNumSheets).toList
     } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
-    Some(sheets)
+    Try(sheets)
   }
 
   def createSheet(sheetCount: Int, spreadsheet: SpreadSheet, fieldDelimiter: String, lineDelimiter: String): Sheet = {

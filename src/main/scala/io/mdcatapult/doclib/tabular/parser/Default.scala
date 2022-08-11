@@ -33,7 +33,7 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
     }
   }
 
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[TabSheet]] = {
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[TabSheet]] = {
     val wb = getWorkbook
     val result: List[TabSheet] = wb.sheetIterator().asScala.zipWithIndex.map(sheet => {
       TabSheet(
@@ -54,6 +54,6 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
       )
     }).toList
     wb.close()
-    Some(result)
+    Try(result)
   }
 }

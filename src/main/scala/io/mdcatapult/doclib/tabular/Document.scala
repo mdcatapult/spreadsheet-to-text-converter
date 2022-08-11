@@ -2,6 +2,8 @@ package io.mdcatapult.doclib.tabular
 
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
+
+import scala.util.Try
 //import akka.pattern.CircuitBreaker
 
 import java.io.File
@@ -47,7 +49,7 @@ class Document(path: Path)(implicit system: ActorSystem, config: Config) {
       override def parse(
                           fieldDelimiter: String,
                           stringDelimiter: String,
-                          lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Option[List[TabSheet]] =
+                          lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Try[List[TabSheet]] =
         try {
           expectedParser.parse(fieldDelimiter, stringDelimiter, lineDelimiter)
         } catch {
@@ -60,7 +62,7 @@ class Document(path: Path)(implicit system: ActorSystem, config: Config) {
         }
     }
 
-  def convertTo(format: String): Option[List[TabSheet]] = format match {
+  def convertTo(format: String): Try[List[TabSheet]] = format match {
       case "tsv" => nestedParser.parse(fieldDelimiter = "\t", stringDelimiter = "\"")
       case "csv" => nestedParser.parse(fieldDelimiter = ",", stringDelimiter = "\"")
       case _ => throw new Exception(f"Format $format not currently supported")

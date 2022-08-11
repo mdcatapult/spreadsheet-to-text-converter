@@ -3,10 +3,10 @@ package io.mdcatapult.doclib.tabular
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.typesafe.config.{Config, ConfigFactory}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.Paths
-import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
-import org.scalatest.matchers.should.Matchers
 
 class DocumentSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """

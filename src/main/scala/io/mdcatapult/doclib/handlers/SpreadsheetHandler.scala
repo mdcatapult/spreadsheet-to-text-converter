@@ -1,7 +1,6 @@
 package io.mdcatapult.doclib.handlers
 
 import akka.actor.ActorSystem
-//import akka.pattern.CircuitBreaker
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
@@ -21,7 +20,6 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
 
 import java.util.UUID
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 

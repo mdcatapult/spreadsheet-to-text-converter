@@ -10,6 +10,7 @@ import org.apache.poi.poifs.filesystem.{DocumentInputStream, POIFSFileSystem}
 
 import java.io.{File, FileInputStream}
 import scala.collection.mutable
+import scala.util.Try
 
 class XLS(file: File) extends Parser with HSSFListener {
 
@@ -32,8 +33,8 @@ class XLS(file: File) extends Parser with HSSFListener {
   val workbookBuildingListener = new EventWorkbookBuilder.SheetRecordCollectingListener(formatListener)
 
 
-  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
-    try {
+  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
+    Try {
       val breaker = createCircuitBreaker()
           .onOpen({
             // The conversion has timed out so close it. The circuit breaker will throw an exception
@@ -50,13 +51,15 @@ class XLS(file: File) extends Parser with HSSFListener {
         request.addListenerForAllRecords(formatListener)
 
         factory.processWorkbookEvents(request, poifs)
-        Some(output.toList)
+        poifs.close()
+        output.toList
       })
-    } catch {
-      case e: Throwable => throw e
-    } finally {
-      poifs.close()
     }
+//    catch {
+//      case e: Throwable => throw e
+//    } finally {
+//      poifs.close()
+//    }
   }
 
   /**

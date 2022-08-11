@@ -1,7 +1,6 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
-import akka.pattern.CircuitBreaker
 import com.typesafe.config.Config
 
 import java.io.File
@@ -16,17 +15,18 @@ import org.apache.poi.xssf.model.StylesTable
 import org.xml.sax.InputSource
 
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 class XLSX(file: File) extends Parser {
 
-  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
+  def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
 
     val pkg: OPCPackage = OPCPackage.open(file, PackageAccess.READ)
     val breaker = createCircuitBreaker()
         .onOpen({
           pkg.close()
         })
-    try {
+    Try {
       breaker.withSyncCircuitBreaker({
         val reader: XSSFReader = new XSSFReader(pkg)
         val sharedStrings = new ReadOnlySharedStringsTable(pkg)
@@ -55,16 +55,17 @@ class XLSX(file: File) extends Parser {
             contents.toString()
           )
         }).toList
-
-        Some(sheets)
+        pkg.close()
+        sheets
       })
-    } catch {
-      case e: Throwable => {
-        throw e
-      }
-
-    } finally {
-      pkg.close()
     }
+//    catch {
+//      case e: Throwable => {
+//        throw e
+//      }
+//
+//    } finally {
+//      pkg.close()
+//    }
   }
 }
