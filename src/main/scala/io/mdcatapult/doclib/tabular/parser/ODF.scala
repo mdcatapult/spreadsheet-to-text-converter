@@ -21,11 +21,13 @@ class ODF(file: File) extends Parser {
    * @return List[Sheet]
    */
   override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
-    val spreadsheet = new SpreadSheet(file)
-    val sheets = for {
-      sheetCount <- (0 until spreadsheet.getNumSheets).toList
-    } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
-    Try(sheets)
+    Try {
+      val spreadsheet = new SpreadSheet(file)
+      val sheets = for {
+        sheetCount <- (0 until spreadsheet.getNumSheets).toList
+      } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
+      sheets
+    }
   }
 
   def createSheet(sheetCount: Int, spreadsheet: SpreadSheet, fieldDelimiter: String, lineDelimiter: String): Sheet = {

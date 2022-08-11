@@ -34,26 +34,28 @@ class Default(file: File, windowSize: Option[Int] = Some(100)) extends Parser {
   }
 
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[TabSheet]] = {
-    val wb = getWorkbook
-    val result: List[TabSheet] = wb.sheetIterator().asScala.zipWithIndex.map(sheet => {
-      TabSheet(
-        sheet._2,
-        sheet._1.getSheetName,
-        wb.getSheetAt(sheet._2).rowIterator().asScala.map(
-          _.cellIterator().asScala.map(
-            cell => cell.getCellType match {
-              case CellType.NUMERIC => cell.getNumericCellValue
-              case CellType.BOOLEAN => cell.getBooleanCellValue
-              case CellType.FORMULA => cell.getCellFormula
-              case CellType.STRING => cell.getStringCellValue
-              case CellType.ERROR => cell.getErrorCellValue
-              case _ => cell.getStringCellValue
-            }
-          ).mkString(fieldDelimiter)
-        ).mkString(lineDelimiter.get)
-      )
-    }).toList
-    wb.close()
-    Try(result)
+    Try {
+      val wb = getWorkbook
+      val result: List[TabSheet] = wb.sheetIterator().asScala.zipWithIndex.map(sheet => {
+        TabSheet(
+          sheet._2,
+          sheet._1.getSheetName,
+          wb.getSheetAt(sheet._2).rowIterator().asScala.map(
+            _.cellIterator().asScala.map(
+              cell => cell.getCellType match {
+                case CellType.NUMERIC => cell.getNumericCellValue
+                case CellType.BOOLEAN => cell.getBooleanCellValue
+                case CellType.FORMULA => cell.getCellFormula
+                case CellType.STRING => cell.getStringCellValue
+                case CellType.ERROR => cell.getErrorCellValue
+                case _ => cell.getStringCellValue
+              }
+            ).mkString(fieldDelimiter)
+          ).mkString(lineDelimiter.get)
+        )
+      }).toList
+      wb.close()
+      result
+    }
   }
 }

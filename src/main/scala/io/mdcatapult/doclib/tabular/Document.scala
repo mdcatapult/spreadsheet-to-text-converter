@@ -45,9 +45,12 @@ class Document(path: Path)(implicit system: ActorSystem, config: Config) {
       case _ => throw new Exception(f"Format $format not currently supported")
     }
     expectedParser.parse(fieldDelimiter, stringDelimiter) match {
-      case Failure(e) => Failure(e)
+      // The circuit breaker throws an anonymous exception with a message
+      case Failure(e: Exception) if (e.getMessage == "Circuit Breaker Timed out.") => Failure(e)
       case Failure(_: OLE2NotOfficeXmlFileException) => misnamedParser.parse(fieldDelimiter, stringDelimiter)
       case Failure(_: OfficeXmlFileException) => misnamedParser.parse(fieldDelimiter, stringDelimiter)
+      // Every other Exception
+      case Failure(e: Exception) if (e.getMessage != "Circuit Breaker Timed out.") => Failure(e)
       case Success(value) => Try(value)
     }
   }

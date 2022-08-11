@@ -18,12 +18,14 @@ import scala.util.Try
 class CSV(file: File) extends Parser {
 
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[TabSheet]] = {
-    val p = CSVParser.parse(file, Charset.defaultCharset(), CSVFormat.DEFAULT)
-    val result = p.iterator.asScala.map(row => {
-      row.iterator().asScala.mkString(fieldDelimiter)
-    }).mkString(lineDelimiter.get)
-    // Can we just call p.close() during the process to stop it?
-    p.close()
-    Try(List(TabSheet(0, "sheet", result)))
+    Try {
+      val p = CSVParser.parse(file, Charset.defaultCharset(), CSVFormat.DEFAULT)
+      val result = p.iterator.asScala.map(row => {
+        row.iterator().asScala.mkString(fieldDelimiter)
+      }).mkString(lineDelimiter.get)
+      // Can we just call p.close() during the process to stop it?
+      p.close()
+      List(TabSheet(0, "sheet", result))
+    }
   }
 }
