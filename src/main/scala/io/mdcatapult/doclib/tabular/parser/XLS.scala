@@ -1,7 +1,6 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
-import akka.pattern.CircuitBreaker
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 import org.apache.poi.hssf.eventusermodel._
@@ -11,7 +10,6 @@ import org.apache.poi.poifs.filesystem.{DocumentInputStream, POIFSFileSystem}
 
 import java.io.{File, FileInputStream}
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
 
 class XLS(file: File) extends Parser with HSSFListener {
 
@@ -36,8 +34,7 @@ class XLS(file: File) extends Parser with HSSFListener {
 
   def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
     try {
-      val breaker =
-        CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = config.getInt("totsv.max-timeout").milliseconds, resetTimeout = 1.minute)
+      val breaker = createCircuitBreaker()
           .onOpen({
             // The conversion has timed out so close it. The circuit breaker will throw an exception
             // It should be a CircuitBreaker with "Circuit Breaker Timed out" message

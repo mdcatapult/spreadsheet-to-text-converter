@@ -15,7 +15,6 @@ import org.apache.poi.xssf.eventusermodel._
 import org.apache.poi.xssf.model.StylesTable
 import org.xml.sax.InputSource
 
-import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
 class XLSX(file: File) extends Parser {
@@ -23,8 +22,7 @@ class XLSX(file: File) extends Parser {
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Option[List[Sheet]] = {
 
     val pkg: OPCPackage = OPCPackage.open(file, PackageAccess.READ)
-    val breaker =
-      CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = config.getInt("totsv.max-timeout").milliseconds, resetTimeout = 1.minute)
+    val breaker = createCircuitBreaker()
         .onOpen({
           pkg.close()
         })
