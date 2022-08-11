@@ -6,7 +6,7 @@ import io.mdcatapult.doclib.tabular.Sheet
 import org.apache.poi.hssf.eventusermodel._
 import org.apache.poi.hssf.eventusermodel.dummyrecord.{LastCellOfRowDummyRecord, MissingCellDummyRecord, MissingRowDummyRecord}
 import org.apache.poi.hssf.record._
-import org.apache.poi.poifs.filesystem.{DocumentInputStream, POIFSFileSystem}
+import org.apache.poi.poifs.filesystem.POIFSFileSystem
 
 import java.io.{File, FileInputStream}
 import scala.collection.mutable
@@ -14,8 +14,6 @@ import scala.util.Try
 
 class XLS(file: File) extends Parser with HSSFListener {
 
-  val poifs = new POIFSFileSystem(new FileInputStream(file))
-  val din: DocumentInputStream = poifs.createDocumentInputStream("Workbook")
   var sheetIndex: Int = -1
   var columnIndex: Int = 0
   var rowIndex: Int = 0
@@ -35,6 +33,7 @@ class XLS(file: File) extends Parser with HSSFListener {
 
   def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
     Try {
+      val poifs: POIFSFileSystem = new POIFSFileSystem(new FileInputStream(file))
       val breaker = createCircuitBreaker()
           .onOpen({
             // The conversion has timed out so close it. The circuit breaker will throw an exception
@@ -55,11 +54,6 @@ class XLS(file: File) extends Parser with HSSFListener {
         output.toList
       })
     }
-//    catch {
-//      case e: Throwable => throw e
-//    } finally {
-//      poifs.close()
-//    }
   }
 
   /**

@@ -21,12 +21,12 @@ class XLSX(file: File) extends Parser {
 
   def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
 
-    val pkg: OPCPackage = OPCPackage.open(file, PackageAccess.READ)
-    val breaker = createCircuitBreaker()
+    Try {
+      val pkg: OPCPackage = OPCPackage.open(file, PackageAccess.READ)
+      val breaker = createCircuitBreaker()
         .onOpen({
           pkg.close()
         })
-    Try {
       breaker.withSyncCircuitBreaker({
         val reader: XSSFReader = new XSSFReader(pkg)
         val sharedStrings = new ReadOnlySharedStringsTable(pkg)
