@@ -29,9 +29,7 @@ The app allows runtime configuration via environment variables
 * **RABBITMQ_DOCLIB_EXCHANGE** - optional: exchange that the consumer should be bound to
 * **CONSUMER_QUEUE** - name of the queue to consume, will auto create and auto bind to exchange
 * **CONSUMER_CONCURRENCY** - optional: number of messages to handle concurrently (default: 1)
-* **SPREADSHEET_MAX_TIMEOUT_FAILURES** - optional: number of times to retry a spreadsheet conversion after it times out (default: 1)
-* **SPREADSHEET_MAX_TIMEOUT** - optional: how long a spreadsheet conversion is allowed to run for before it is marked as a failure (default: 1000 seconds)
-* **SPREADSHEET_MAX_TIMEOUT_RESET** - optional: time to pause before attempting a retry (default: 1 minute)
+* **SPREADSHEET_MAX_TIMEOUT** - optional: how long a spreadsheet conversion is allowed to run for in milliseconds before it is marked as a failure (default: 600000 milliseconds ie 10 minutes)
 
 #### These are the formats currently working with their mimetype counts in the document library. I've worked from the top down to make sure we can process as many docs as possible:
 

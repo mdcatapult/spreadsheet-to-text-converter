@@ -23,7 +23,6 @@ class CSV(file: File) extends Parser {
       val result = p.iterator.asScala.map(row => {
         row.iterator().asScala.mkString(fieldDelimiter)
       }).mkString(lineDelimiter.get)
-      // Can we just call p.close() during the process to stop it?
       p.close()
       List(TabSheet(0, "sheet", result))
     }

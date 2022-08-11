@@ -1,14 +1,12 @@
 package io.mdcatapult.doclib.tabular.parser
 
 import akka.actor.ActorSystem
-
-import java.io.File
 import com.github.miachm.sods
 import com.github.miachm.sods.SpreadSheet
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 
-import scala.collection.immutable.List
+import java.io.File
 import scala.util.Try
 
 class ODF(file: File) extends Parser {
