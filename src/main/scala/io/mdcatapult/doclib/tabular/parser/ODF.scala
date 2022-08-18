@@ -1,12 +1,13 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import java.io.File
-
+import akka.actor.ActorSystem
 import com.github.miachm.sods
 import com.github.miachm.sods.SpreadSheet
+import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 
-import scala.collection.immutable.List
+import java.io.File
+import scala.util.Try
 
 class ODF(file: File) extends Parser {
   /**
@@ -17,11 +18,14 @@ class ODF(file: File) extends Parser {
    * @param lineDelimiter   Option[String]
    * @return List[Sheet]
    */
-  override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String]): List[Sheet] = {
-    val spreadsheet = new SpreadSheet(file)
-    for {
-      sheetCount <- (0 until spreadsheet.getNumSheets).toList
-    } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
+  override def parse(fieldDelimiter: String, stringDelimiter: String, lineDelimiter: Option[String])(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
+    Try {
+      val spreadsheet = new SpreadSheet(file)
+      val sheets = for {
+        sheetCount <- (0 until spreadsheet.getNumSheets).toList
+      } yield createSheet(sheetCount, spreadsheet, fieldDelimiter, lineDelimiter.getOrElse("\n"))
+      sheets
+    }
   }
 
   def createSheet(sheetCount: Int, spreadsheet: SpreadSheet, fieldDelimiter: String, lineDelimiter: String): Sheet = {

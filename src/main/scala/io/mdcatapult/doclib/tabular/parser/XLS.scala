@@ -1,19 +1,19 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import java.io.{File, FileInputStream}
-
+import akka.actor.ActorSystem
+import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 import org.apache.poi.hssf.eventusermodel._
 import org.apache.poi.hssf.eventusermodel.dummyrecord.{LastCellOfRowDummyRecord, MissingCellDummyRecord, MissingRowDummyRecord}
-import org.apache.poi.hssf.record.{SSTRecord, _}
-import org.apache.poi.poifs.filesystem.{DocumentInputStream, POIFSFileSystem}
+import org.apache.poi.hssf.record._
+import org.apache.poi.poifs.filesystem.POIFSFileSystem
 
+import java.io.{File, FileInputStream}
 import scala.collection.mutable
+import scala.util.Try
 
 class XLS(file: File) extends Parser with HSSFListener {
 
-  val poifs = new POIFSFileSystem(new FileInputStream(file))
-  val din: DocumentInputStream = poifs.createDocumentInputStream("Workbook")
   var sheetIndex: Int = -1
   var columnIndex: Int = 0
   var rowIndex: Int = 0
@@ -31,17 +31,29 @@ class XLS(file: File) extends Parser with HSSFListener {
   val workbookBuildingListener = new EventWorkbookBuilder.SheetRecordCollectingListener(formatListener)
 
 
-  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n")): List[Sheet] = {
-    fieldDelimiter = fieldDel
-    stringDelimiter = stringDel
-    lineDelimiter = lineDel
-    val factory = new HSSFEventFactory
-    val request = new HSSFRequest
-    request.addListenerForAllRecords(formatListener)
-//    request.addListenerForAllRecords(workbookBuildingListener)
-    factory.processWorkbookEvents(request, poifs)
-    poifs.close()
-    output.toList
+  def parse(fieldDel: String, stringDel: String, lineDel:Option[String] = Some("\n"))(implicit system: ActorSystem, config: Config): Try[List[Sheet]] = {
+    Try {
+      val poifs: POIFSFileSystem = new POIFSFileSystem(new FileInputStream(file))
+      val breaker = createCircuitBreaker()
+          .onOpen({
+            // The conversion has timed out so close it. The circuit breaker will throw an exception
+            // It should be a CircuitBreaker with "Circuit Breaker Timed out" message
+            poifs.close()
+          })
+      breaker.withSyncCircuitBreaker({
+        fieldDelimiter = fieldDel
+        stringDelimiter = stringDel
+        lineDelimiter = lineDel
+        val factory = new HSSFEventFactory
+        val request = new HSSFRequest
+
+        request.addListenerForAllRecords(formatListener)
+
+        factory.processWorkbookEvents(request, poifs)
+        poifs.close()
+        output.toList
+      })
+    }
   }
 
   /**
