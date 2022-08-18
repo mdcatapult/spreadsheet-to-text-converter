@@ -1,5 +1,6 @@
 package io.mdcatapult.doclib.handlers
 
+import akka.actor.ActorSystem
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
@@ -32,7 +33,8 @@ object SpreadsheetHandler {
                             config: Config,
                             collection: MongoCollection[DoclibDoc],
                             derivativesCollection: MongoCollection[ParentChildMapping],
-                            appConfig: AppConfig): SpreadsheetHandler =
+                            appConfig: AppConfig,
+                            system: ActorSystem): SpreadsheetHandler =
     new SpreadsheetHandler(
       downstream,
       supervisor,
@@ -56,7 +58,8 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          config: Config,
                          collection: MongoCollection[DoclibDoc],
                          derivativesCollection: MongoCollection[ParentChildMapping],
-                         appConfig: AppConfig) extends AbstractHandler[DoclibMsg] {
+                         appConfig: AppConfig,
+                         system: ActorSystem) extends AbstractHandler[DoclibMsg] {
 
 
   private val version: Version = Version.fromConfig(config)
@@ -139,9 +142,9 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     val targetPath = paths.getTargetPath(doc.source, Try(config.getString("consumer.name")).toOption)
     val sourceAbsPath = paths.absolutePath(doc.source)
 
-    val d = new TabularDoc(sourceAbsPath)
+    val d = new TabularDoc(sourceAbsPath)(system, config)
 
-    d.convertTo(sheetWriter.convertToFormat)
+    d.convertTo(sheetWriter.convertToFormat).get
       .filter(_.content.length > 0)
       .map(s => sheetWriter.writeSheet(s, paths.absolutePath(targetPath)))
       .filter(_.path.isDefined)
