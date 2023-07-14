@@ -1,11 +1,12 @@
 package io.mdcatapult.doclib.handlers
 
 import akka.actor.ActorSystem
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
+import io.mdcatapult.doclib.consumer.AbstractHandler
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -45,9 +46,6 @@ object SpreadsheetHandler {
     )
 }
 
-case class SpreadSheetHandlerResult(doclibDoc: DoclibDoc,
-                                    newPathsFromSpreadsheet: List[String]) extends HandlerResult
-
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          supervisor: Sendable[SupervisorMsg],
                          paths: ConsumerPaths,
@@ -71,7 +69,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     * @param msg      DoclibMsg
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[SpreadSheetHandlerResult]] = {
+  override def handle(doclibMsgWrapper: CommittableReadResult): Future[(CommittableReadResult, Try[SpreadSheetHandlerResult])] = {
     logReceived(msg.id)
 
     val spreadSheetProcess = for {
