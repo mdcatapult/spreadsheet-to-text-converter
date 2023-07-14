@@ -34,19 +34,19 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= {
-      val doclibCommonVersion = "3.1.1"
+      val doclibCommonVersion = "4.0.0"
 
-      val configVersion = "1.4.1"
-      val akkaVersion = "2.6.18"
-      val catsVersion = "2.6.1"
-//      Apache poi & poi-ooxml are now at 5.x but poi-ooxml-schemas is only at 4.1.2 and causes dedup issues with poi-ooxml
-      val apachePoiVersion = "4.1.2"
-      val scalacticVersion = "3.2.10"
-      val scalaTestVersion = "3.2.11"
+      val configVersion = "1.4.2"
+      val akkaVersion = "2.8.1"
+      val catsVersion = "2.9.0"
+      val apachePoiVersion = "5.2.2"
+      val apachePoiXMLVersion = "4.1.2"
+      val scalacticVersion = "3.2.15"
+      val scalaTestVersion = "3.2.15"
       val scalaMockVersion = "5.2.0"
-      val scalaLoggingVersion = "3.9.4"
-      val logbackClassicVersion = "1.2.10"
-      val sodsVersion = "1.4.0"
+      val scalaLoggingVersion = "3.9.5"
+      val logbackClassicVersion = "1.4.7"
+      val sodsVersion = "1.5.2"
 
       Seq(
       "org.scalactic" %% "scalactic"                  % scalacticVersion,
@@ -62,7 +62,7 @@ lazy val root = (project in file("."))
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "org.apache.poi" % "poi"                        % apachePoiVersion,
       "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
-      "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiVersion,
+      "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiXMLVersion,
       "com.github.miachm.sods" % "SODS"               % sodsVersion
     )
     }.map(
@@ -73,8 +73,8 @@ lazy val root = (project in file("."))
   )
   .settings(
     assemblyJarName := "consumer.jar",
-    test in assembly := {},
-    assemblyMergeStrategy in assembly := {
+    assembly / test:= {},
+    assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("com", "sun", _*) => MergeStrategy.first
@@ -97,7 +97,7 @@ lazy val root = (project in file("."))
       case n if n.startsWith("scala-collection-compat.properties") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     }
   )
