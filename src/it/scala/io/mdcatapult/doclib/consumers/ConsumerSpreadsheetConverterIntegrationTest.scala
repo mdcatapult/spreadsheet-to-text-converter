@@ -43,8 +43,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   with ScalaFutures
   with BeforeAndAfterAll {
 
-//  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2, "/test.xlsx" -> 3)
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "test.ods" -> 2, "/test.xlsx" -> 3)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
   implicit val config: Config = ConfigFactory.load()
 
