@@ -27,9 +27,9 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer[DoclibMsg, SpreadSh
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
-    val upstream: Queue[DoclibMsg, SpreadSheetHandlerResult] = Queue[DoclibMsg, SpreadSheetHandlerResult]("consumer.queue")
-    val downstream: Queue[PrefetchMsg, AnyHandlerResult] = Queue[PrefetchMsg, AnyHandlerResult]("downstream.queue")
-    val supervisor: Queue[SupervisorMsg, AnyHandlerResult] = Queue[SupervisorMsg, AnyHandlerResult]("doclib.supervisor.queue")
+    val upstream: Queue[DoclibMsg, SpreadSheetHandlerResult] = Queue[DoclibMsg, SpreadSheetHandlerResult](config.getString("consumer.queue"))
+    val downstream: Queue[PrefetchMsg, AnyHandlerResult] = Queue[PrefetchMsg, AnyHandlerResult](config.getString("downstream.queue"))
+    val supervisor: Queue[SupervisorMsg, AnyHandlerResult] = Queue[SupervisorMsg, AnyHandlerResult](config.getString("doclib.supervisor.queue"))
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
     val writeLimiter =  SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
