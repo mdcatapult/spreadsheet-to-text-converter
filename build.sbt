@@ -40,7 +40,6 @@ lazy val root = (project in file("."))
       val akkaVersion = "2.8.1"
       val catsVersion = "2.9.0"
       val apachePoiVersion = "5.2.2"
-      val apachePoiXMLVersion = "4.1.2"
       val scalacticVersion = "3.2.15"
       val scalaTestVersion = "3.2.15"
       val scalaMockVersion = "5.2.0"
@@ -64,7 +63,6 @@ lazy val root = (project in file("."))
         "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
         "org.apache.poi" % "poi"                        % apachePoiVersion,
         "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
-        "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiXMLVersion,
         "com.github.miachm.sods" % "SODS"               % sodsVersion
       )
     }.map(
