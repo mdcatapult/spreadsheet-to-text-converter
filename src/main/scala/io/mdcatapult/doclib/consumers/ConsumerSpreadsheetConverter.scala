@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.consumers
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import io.mdcatapult.doclib.consumer.AbstractConsumer
-import io.mdcatapult.doclib.handlers.{AnyHandlerResult, SpreadsheetConverterHandlerResult, SpreadsheetHandler}
+import io.mdcatapult.doclib.handlers.{AnyHandlerResult, SpreadSheetHandlerResult, SpreadsheetHandler}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
@@ -14,7 +14,7 @@ import org.mongodb.scala.MongoCollection
 
 import scala.util.Try
 
-object ConsumerSpreadsheetConverter extends AbstractConsumer[DoclibMsg, SpreadsheetConverterHandlerResult] {
+object ConsumerSpreadsheetConverter extends AbstractConsumer[DoclibMsg, SpreadSheetHandlerResult] {
 
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): Unit = {
     import as.dispatcher
@@ -27,7 +27,7 @@ object ConsumerSpreadsheetConverter extends AbstractConsumer[DoclibMsg, Spreadsh
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
-    val upstream: Queue[DoclibMsg, SpreadsheetConverterHandlerResult] = Queue[DoclibMsg, SpreadsheetConverterHandlerResult]("consumer.queue")
+    val upstream: Queue[DoclibMsg, SpreadSheetHandlerResult] = Queue[DoclibMsg, SpreadSheetHandlerResult]("consumer.queue")
     val downstream: Queue[PrefetchMsg, AnyHandlerResult] = Queue[PrefetchMsg, AnyHandlerResult]("downstream.queue")
     val supervisor: Queue[SupervisorMsg, AnyHandlerResult] = Queue[SupervisorMsg, AnyHandlerResult]("doclib.supervisor.queue")
 

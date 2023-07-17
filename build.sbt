@@ -39,7 +39,7 @@ lazy val root = (project in file("."))
       val configVersion = "1.4.2"
       val akkaVersion = "2.8.1"
       val catsVersion = "2.9.0"
-      val apachePoiVersion = "5.2.2"
+      val apachePoiVersion = "4.1.2"
       val apachePoiXMLVersion = "4.1.2"
       val scalacticVersion = "3.2.15"
       val scalaTestVersion = "3.2.15"
@@ -47,24 +47,26 @@ lazy val root = (project in file("."))
       val scalaLoggingVersion = "3.9.5"
       val logbackClassicVersion = "1.4.7"
       val sodsVersion = "1.5.2"
+      val log4jVersion = "2.20.0"
 
       Seq(
-      "org.scalactic" %% "scalactic"                  % scalacticVersion,
-      "org.scalatest" %% "scalatest"                  % scalaTestVersion % "it,test",
-      "org.scalamock" %% "scalamock"                  % scalaMockVersion % "it,test",
-      "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
-      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
-      "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
-      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
-      "com.typesafe" % "config"                       % configVersion,
-      "org.typelevel" %% "cats-kernel"                % catsVersion,
-      "org.typelevel" %% "cats-core"                  % catsVersion,
-      "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
-      "org.apache.poi" % "poi"                        % apachePoiVersion,
-      "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
-      "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiXMLVersion,
-      "com.github.miachm.sods" % "SODS"               % sodsVersion
-    )
+        "org.scalactic" %% "scalactic"                  % scalacticVersion,
+        "org.scalatest" %% "scalatest"                  % scalaTestVersion % "it,test",
+        "org.scalamock" %% "scalamock"                  % scalaMockVersion % "it,test",
+        "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
+        "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
+        "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+        "org.apache.logging.log4j" % "log4j-core"         % log4jVersion,
+        "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
+        "com.typesafe" % "config"                       % configVersion,
+        "org.typelevel" %% "cats-kernel"                % catsVersion,
+        "org.typelevel" %% "cats-core"                  % catsVersion,
+        "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+        "org.apache.poi" % "poi"                        % apachePoiVersion,
+        "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
+        "org.apache.poi" % "poi-ooxml-schemas"          % apachePoiXMLVersion,
+        "com.github.miachm.sods" % "SODS"               % sodsVersion
+      )
     }.map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
