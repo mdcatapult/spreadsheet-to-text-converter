@@ -1,19 +1,16 @@
 package io.mdcatapult.doclib.consumers
 
-import java.io.File
-import java.time.LocalDateTime
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
-import akka.actor.{ActorRef, ActorSystem}
+import akka.Done
+import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import better.files.Dsl.pwd
 import better.files.{File => ScalaFile, _}
-import com.spingo.op_rabbit.properties.MessageProperty
+import com.rabbitmq.client.AMQP
 import com.typesafe.config.{Config, ConfigFactory}
+import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.doclib.handlers.SpreadsheetHandler
 import io.mdcatapult.doclib.messages.{PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
-import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
@@ -28,8 +25,12 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Await
+import java.io.File
+import java.time.LocalDateTime
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
   """
@@ -42,7 +43,7 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   with ScalaFutures
   with BeforeAndAfterAll {
 
-  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2, "/test.xlsx" -> 3)
+  val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
   implicit val config: Config = ConfigFactory.load()
 
@@ -57,21 +58,23 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
     override val name: String = "prefetch-message-queue"
-    override val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+    override val persistent: Boolean = false
 
-    def send(envelope: PrefetchMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: PrefetchMsg, properties: Option[AMQP.BasicProperties]): Future[Done] = {
       sent.set(sent.get() + 1)
+      Future(Done)
     }
   }
 
   class QS extends Sendable[SupervisorMsg] {
     override val name: String = "doclib-message-queue"
-    override val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+    override val persistent: Boolean = false
 
-    def send(envelope: SupervisorMsg,  properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: SupervisorMsg, properties: Option[AMQP.BasicProperties]): Future[Done] = {
       sent.set(sent.get() + 1)
+      Future(Done)
     }
   }
 
