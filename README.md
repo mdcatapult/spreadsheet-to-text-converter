@@ -4,7 +4,7 @@ A consumer that converts multiple spreadsheet or csv formats to tsv files
 
 ## Execution
 
-This is a scalal application that runs in side the JVM
+This is a scala application that runs in side the JVM
 
 ```bash
 java $JAVA_OPTS -jar consumer.jar --config common.conf

@@ -1,16 +1,15 @@
 package io.mdcatapult.doclib.consumers
 
-import java.time.LocalDateTime
-import java.util.concurrent.atomic.AtomicInteger
-import akka.actor.{ActorRef, ActorSystem}
+import akka.Done
+import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import com.mongodb.reactivestreams.client.{MongoCollection => JMongoCollection}
-import com.spingo.op_rabbit.properties.MessageProperty
+import com.rabbitmq.client.AMQP
 import com.typesafe.config.{Config, ConfigFactory}
+import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.doclib.handlers.{Mimetypes, SpreadsheetHandler}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.{AppConfig, Derivative, DoclibDoc, ParentChildMapping}
-import io.mdcatapult.doclib.codec.MongoCodecs
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.bson.codecs.configuration.CodecRegistry
@@ -21,6 +20,9 @@ import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpecLike
 
+import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Future
 import scala.util.Try
 
 class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetConverterSpec", ConfigFactory.parseString(
@@ -102,31 +104,34 @@ class ConsumerSpreadsheetConverterSpec extends TestKit(ActorSystem("SpreadsheetC
   // Fake the queues, we are not interacting with them
   class QP extends Sendable[PrefetchMsg] {
     val name = "prefetch-message-queue"
-    val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+    override val persistent: Boolean = false
 
-    def send(envelope: PrefetchMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    override def send(envelope: PrefetchMsg, properties: Option[AMQP.BasicProperties]): Future[Done] = {
       sent.set(sent.get() + 1)
+      Future(Done)
     }
   }
 
   class QD extends Sendable[DoclibMsg] {
     val name = "doclib-message-queue"
-    val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+    override val persistent: Boolean = false
 
-    def send(envelope: DoclibMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: DoclibMsg, properties: Option[AMQP.BasicProperties]): Future[Done] = {
       sent.set(sent.get() + 1)
+      Future(Done)
     }
   }
 
   class QS extends Sendable[SupervisorMsg] {
     val name = "doclib-message-queue"
-    val rabbit: ActorRef = testActor
     val sent: AtomicInteger = new AtomicInteger(0)
+    override val persistent: Boolean = false
 
-    def send(envelope: SupervisorMsg, properties: Seq[MessageProperty] = Seq.empty): Unit = {
+    def send(envelope: SupervisorMsg, properties: Option[AMQP.BasicProperties]): Future[Done] = {
       sent.set(sent.get() + 1)
+      Future(Done)
     }
   }
 

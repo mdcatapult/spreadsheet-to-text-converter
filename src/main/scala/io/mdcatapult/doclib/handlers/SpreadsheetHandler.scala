@@ -1,11 +1,12 @@
 package io.mdcatapult.doclib.handlers
 
 import akka.actor.ActorSystem
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
+import io.mdcatapult.doclib.consumer.AbstractHandler
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -18,10 +19,11 @@ import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
+import play.api.libs.json.Json
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object SpreadsheetHandler {
 
@@ -45,9 +47,6 @@ object SpreadsheetHandler {
     )
 }
 
-case class SpreadSheetHandlerResult(doclibDoc: DoclibDoc,
-                                    newPathsFromSpreadsheet: List[String]) extends HandlerResult
-
 class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          supervisor: Sendable[SupervisorMsg],
                          paths: ConsumerPaths,
@@ -59,7 +58,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
                          collection: MongoCollection[DoclibDoc],
                          derivativesCollection: MongoCollection[ParentChildMapping],
                          appConfig: AppConfig,
-                         system: ActorSystem) extends AbstractHandler[DoclibMsg] {
+                         system: ActorSystem) extends AbstractHandler[DoclibMsg, SpreadSheetHandlerResult] {
 
 
   private val version: Version = Version.fromConfig(config)
@@ -71,36 +70,48 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     * @param msg      DoclibMsg
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[SpreadSheetHandlerResult]] = {
-    logReceived(msg.id)
+  override def handle(doclibMsgWrapper: CommittableReadResult): Future[(CommittableReadResult, Try[SpreadSheetHandlerResult])] = {
+    Try {
+      Json.parse(doclibMsgWrapper.message.bytes.utf8String).as[DoclibMsg]
+    } match {
+      case Success(msg: DoclibMsg) => {
+        logReceived(msg.id)
 
-    val spreadSheetProcess = for {
-      doc <- OptionT(findDocById(collection, msg.id))
-      if !flagContext.isRunRecently(doc)
+        val spreadSheetProcess = for {
+          doc <- OptionT(findDocById(collection, msg.id))
+          if !flagContext.isRunRecently(doc)
 
-      started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
-      _ <- OptionT.fromOption[Future](Mimetypes.validateMimetype(doc))
-      paths: List[String] <- OptionT.pure[Future](process(doc))
-      if paths.nonEmpty
-      derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
-      _ <- OptionT(persist(derivatives))
-      _ <- OptionT.pure[Future](paths.foreach(path => enqueue(path, doc)))
-      _ <- OptionT.liftF(
-        flagContext.end(
-          doc,
-          state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
-          noCheck = started.changesMade,
+          started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
+          _ <- OptionT.fromOption[Future](Mimetypes.validateMimetype(doc))
+          paths: List[String] <- OptionT.pure[Future](process(doc))
+          if paths.nonEmpty
+          derivatives <- OptionT.pure[Future](createDerivativesFromPaths(doc, paths))
+          _ <- OptionT(persist(derivatives))
+          _ <- OptionT.pure[Future](paths.foreach(path => enqueue(path, doc)))
+          _ <- OptionT.liftF(
+            flagContext.end(
+              doc,
+              state = Option(DoclibFlagState(paths.length.toString, nowUtc.now())),
+              noCheck = started.changesMade,
+            )
+          )
+        } yield SpreadSheetHandlerResult(doc, paths)
+        val finalResult = spreadSheetProcess.value.transformWith({
+          case Success(Some(value: SpreadSheetHandlerResult)) => Future((doclibMsgWrapper, Success(value)))
+          case Success(None) => Future((doclibMsgWrapper, Failure(new Exception(s"No spreadsheet result was present for ${msg.id}"))))
+          case Failure(e) => Future((doclibMsgWrapper, Failure(e)))
+        })
+
+        postHandleProcess(
+          documentId = msg.id,
+          handlerResult = finalResult,
+          flagContext = flagContext,
+          supervisor,
+          collection
         )
-      )
-    } yield SpreadSheetHandlerResult(doc, paths)
-
-    postHandleProcess(
-      documentId = msg.id,
-      handlerResult = spreadSheetProcess.value,
-      flagContext = flagContext,
-      supervisor,
-      collection
-    )
+      }
+      case Failure(x: Throwable) => Future((doclibMsgWrapper, Failure(new Exception(s"Unable to decode message received. ${x.getMessage}"))))
+    }
   }
 
   /**
@@ -145,7 +156,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     val d = new TabularDoc(sourceAbsPath)(system, config)
 
     d.convertTo(sheetWriter.convertToFormat).get
-      .filter(_.content.length > 0)
+      .filter(_.content.nonEmpty)
       .map(s => sheetWriter.writeSheet(s, paths.absolutePath(targetPath)))
       .filter(_.path.isDefined)
       .map(_.path.get)
