@@ -18,7 +18,9 @@ import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.result.InsertManyResult
+import org.mongodb.scala.model.ReplaceOptions
+import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.model.Filters.equal
 import play.api.libs.json.Json
 
 import java.util.UUID
@@ -176,10 +178,17 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
   def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
     paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Try(config.getString("consumer.name")).toOption))
 
-  def persist(derivatives: List[ParentChildMapping]): Future[Option[InsertManyResult]] = {
-    //TODO This assumes that these are all new mappings. They all have unique ids. Could we
-    // have problems with them clashing with existing mappings?
-    derivativesCollection.insertMany(derivatives).toFutureOption()
+  /**
+   * Insert porent-child mappings, upserting in case there are any clashes with existing mappings
+
+   * @param derivatives
+   * @return
+   */
+  def persist(derivatives: List[ParentChildMapping]): Future[Option[UpdateResult]] = {
+    derivatives.map(d => derivativesCollection.replaceOne(equal("_id", d._id), d, ReplaceOptions().upsert(true)).toFutureOption)
+      .sequence
+      .map(_.flatten)
+      .map(_.headOption)
   }
 
 }
