@@ -187,7 +187,6 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     val updatedParentChildMappings = List[ParentChildMapping](mappingTwo)
     val secondResult = Await.result(spreadsheetHandler.persist(updatedParentChildMappings), 5.seconds)
     secondResult.get.getModifiedCount should be(1)
-//    secondResult.get.getUpsertedId should be(mappingOneID)
     val allResults: Seq[ParentChildMapping] = Await.result(derivativesCollection.find().toFuture(), 5.seconds)
     assert(allResults.length == 1)
     allResults.head should be(mappingTwo)

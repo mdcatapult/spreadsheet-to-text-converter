@@ -179,7 +179,7 @@ class SpreadsheetHandler(downstream: Sendable[PrefetchMsg],
     paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Try(config.getString("consumer.name")).toOption))
 
   /**
-   * Insert porent-child mappings, upserting in case there are any clashes with existing mappings
+   * Insert parent-child mappings, upserting in case there are any clashes with existing mappings
 
    * @param derivatives
    * @return
