@@ -21,14 +21,13 @@ lazy val root = (project in file("."))
     ),
     useCoursier      := false,
     resolvers         ++= Seq(
-      "MDC Nexus Public" at "https://nexus.wopr.inf.mdc/repository/maven-public/",
-      "MDC Nexus Snapshots" at "https://nexus.wopr.inf.mdc/repository/maven-snapshots/",
+      "gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven",
       "Maven Public" at "https://repo1.maven.org/maven2"),
     updateOptions     := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
     credentials       += {
-      sys.env.get("NEXUS_PASSWORD") match {
+      sys.env.get("CI_JOB_TOKEN") match {
         case Some(p) =>
-          Credentials("Sonatype Nexus Repository Manager", "nexus.wopr.inf.mdc", "gitlab", p)
+          Credentials("GitLab Packages Registry", "gitlab.com", "<name>", p)
         case None =>
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
