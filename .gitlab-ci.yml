@@ -29,6 +29,7 @@ test:
   stage: test
   variables:
     MONGO_HOST: mongo
+    MONGO_PORT: 27017
     MONGO_DATABASE: spreadsheet-test
     MONGO_COLLECTION: documents
     MONGO_USERNAME: admin
