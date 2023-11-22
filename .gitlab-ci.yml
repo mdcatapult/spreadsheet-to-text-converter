@@ -87,7 +87,6 @@ assemble-main:
   stage: build
   script:
     - sbt assembly
-    - /scripts/upload-files.sh 'target/scala-2.13/consumer.jar' $CI_COMMIT_REF_NAME
   artifacts:
     paths:
       - target/scala-2.13/consumer.jar
