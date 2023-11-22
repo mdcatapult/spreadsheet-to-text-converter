@@ -20,7 +20,7 @@ import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.{equal => Mequal}
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -41,7 +41,8 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
   with Matchers
   with MockFactory
   with ScalaFutures
-  with BeforeAndAfterAll {
+  with BeforeAndAfterAll
+  with BeforeAndAfterEach {
 
   val sheets: Map[String, Int] = Map[String, Int]( "/test.csv" -> 1, "/test.xls" -> 2, "/test.xlsx" -> 2, "test.ods" -> 2)
 
@@ -163,7 +164,42 @@ class ConsumerSpreadsheetConverterIntegrationTest extends TestKit(ActorSystem("S
     assert(thrown.getMessage === "Circuit Breaker Timed out.")
   }
 
-  override def beforeAll(): Unit = {
+  "Persisting an existing parent child record" should "update the existing one" in {
+    val parentID = new ObjectId
+    val mappingOneID = UUID.randomUUID
+    val mappingThreeID = UUID.randomUUID
+    val childOneID = new ObjectId
+    val childTwoId = new ObjectId
+    val childOnePath = "/a/path/to/file1.txt"
+    val childTwoPath = "/a/path/to/file2.txt"
+    val childThreePath = "/a/path/to/file3.txt"
+    val mappingOne = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childOneID), childPath = childOnePath, consumer = Some("consumer"))
+    val mappingTwo = ParentChildMapping(_id = mappingOneID, parent = parentID, child = Some(childTwoId), childPath = childTwoPath, consumer = Some("consumer"))
+    val mappingThree = ParentChildMapping(_id = mappingThreeID, parent = parentID, child = Some(childTwoId), childPath = childThreePath, consumer = Some("consumer"))
+    val parentChildMappings = List[ParentChildMapping](mappingOne)
+    val result = Await.result(spreadsheetHandler.persist(parentChildMappings), 5.seconds)
+
+    // The first one should be inserted
+    assert(result.exists(_.wasAcknowledged()))
+    val findOne = Await.result(derivativesCollection.find(Mequal("_id", mappingOneID)).toFuture(), 5.seconds)
+    assert(findOne.head == mappingOne)
+    // The second one should upsert the existing record
+    val updatedParentChildMappings = List[ParentChildMapping](mappingTwo)
+    val secondResult = Await.result(spreadsheetHandler.persist(updatedParentChildMappings), 5.seconds)
+    secondResult.get.getModifiedCount should be(1)
+    val allResults: Seq[ParentChildMapping] = Await.result(derivativesCollection.find().toFuture(), 5.seconds)
+    assert(allResults.length == 1)
+    allResults.head should be(mappingTwo)
+    // The third one should be inserted
+    val thirdResult = Await.result(spreadsheetHandler.persist(List[ParentChildMapping](mappingThree)), 5.seconds)
+    assert(thirdResult.exists(_.wasAcknowledged()))
+    val moreResults: Seq[ParentChildMapping] = Await.result(derivativesCollection.find().toFuture(), 5.seconds)
+    assert(moreResults.length == 2)
+    assert(moreResults.contains(mappingTwo))
+    assert(moreResults.contains(mappingThree))
+  }
+
+  override def beforeEach(): Unit = {
     Await.result(collection.drop().toFuture(), 5.seconds)
     Await.result(derivativesCollection.drop().toFuture(), 5.seconds)
   }
