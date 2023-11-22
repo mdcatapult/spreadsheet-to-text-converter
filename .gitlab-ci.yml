@@ -96,7 +96,7 @@ assemble-main:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
-publish-master:
+publish-main:
   stage: publish
   image:
     name: gcr.io/kaniko-project/executor:debug
