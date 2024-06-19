@@ -135,6 +135,12 @@ container_scanning:
   inherit:
     default: false
 
+dependency_scanning:
+  stage: test
+  allow_failure: false
+  variables:
+    SECURE_LOG_LEVEL: debug
+
 sast:
   stage: test
 
