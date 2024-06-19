@@ -6,6 +6,7 @@ stages:
   - test
   - build
   - publish
+  - container-scanning
   - release
 
 variables:
@@ -96,7 +97,7 @@ assemble-main:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
-publish-main:
+publish-tags:
   stage: publish
   image:
     name: gcr.io/kaniko-project/executor:debug
@@ -111,8 +112,34 @@ publish-main:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
+publish-main:
+  stage: publish
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  before_script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor --context $CI_PROJECT_DIR --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  only:
+    refs:
+      - tags
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
+
+container_scanning:
+  stage: container-scanning
+  allow_failure: false
+  variables:
+    CS_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  inherit:
+    default: false
+
 sast:
   stage: test
 
 include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
