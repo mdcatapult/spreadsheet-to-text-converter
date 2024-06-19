@@ -1,7 +1,7 @@
 package io.mdcatapult.doclib.tabular
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

@@ -1,6 +1,6 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 import org.apache.poi.hssf.eventusermodel._

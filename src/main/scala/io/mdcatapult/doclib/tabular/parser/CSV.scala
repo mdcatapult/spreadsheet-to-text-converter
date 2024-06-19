@@ -1,6 +1,6 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.typesafe.config.Config
 
 import java.io.File

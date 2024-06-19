@@ -1,6 +1,6 @@
 package io.mdcatapult.doclib.tabular
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.typesafe.config.Config
 
 import scala.util.{Failure, Success, Try}

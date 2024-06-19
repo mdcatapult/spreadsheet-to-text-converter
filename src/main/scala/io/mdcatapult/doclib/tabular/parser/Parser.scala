@@ -1,7 +1,7 @@
 package io.mdcatapult.doclib.tabular.parser
 
-import akka.actor.ActorSystem
-import akka.pattern.CircuitBreaker
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.pattern.CircuitBreaker
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.tabular.Sheet
 

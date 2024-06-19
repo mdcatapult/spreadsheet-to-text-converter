@@ -1,8 +1,8 @@
 package io.mdcatapult.doclib.consumers
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import better.files.Dsl.pwd
 import better.files.{File => ScalaFile, _}
 import com.rabbitmq.client.AMQP

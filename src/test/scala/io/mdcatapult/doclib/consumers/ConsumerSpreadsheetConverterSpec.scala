@@ -1,8 +1,8 @@
 package io.mdcatapult.doclib.consumers
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import com.mongodb.reactivestreams.client.{MongoCollection => JMongoCollection}
 import com.rabbitmq.client.AMQP
 import com.typesafe.config.{Config, ConfigFactory}

@@ -1,7 +1,7 @@
 package io.mdcatapult.doclib.handlers
 
-import akka.actor.ActorSystem
-import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.connectors.amqp.scaladsl.CommittableReadResult
 import better.files.{File => ScalaFile}
 import cats.data.OptionT
 import cats.implicits._
