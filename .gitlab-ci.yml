@@ -139,6 +139,7 @@ dependency_scanning:
   stage: test
   allow_failure: false
   variables:
+    CI_JOB_TOKEN: $CI_JOB_TOKEN
     SECURE_LOG_LEVEL: debug
 
 sast:
