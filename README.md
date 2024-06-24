@@ -48,3 +48,6 @@ The app allows runtime configuration via environment variables
 docker-compose up -d
 sbt clean test it:test
 ```
+
+### License
+This project is licensed under the terms of the Apache 2 license, which can be found in the repository as `LICENSE.txt`
