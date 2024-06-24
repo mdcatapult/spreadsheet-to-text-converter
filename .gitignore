@@ -6,6 +6,7 @@ target/*
 project/project
 project/target
 /tmp
+it/target
 
 *.cfx
 *.local.conf

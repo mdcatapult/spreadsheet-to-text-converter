@@ -1,16 +1,45 @@
 import sbtrelease.ReleaseStateTransformations._
 import Release._
 
+lazy val scala_2_13 = "2.13.14"
+
 val meta = """META.INF(.)*""".r
 
 lazy val IntegrationTest = config("it") extend Test
 
+val doclibCommonVersion = "5.0.1"
+
+val pekkoVersion = "1.0.2"
+val configVersion = "1.4.3"
+val akkaVersion = "2.8.1"
+val catsVersion = "2.12.0"
+val apachePoiVersion = "5.2.5"
+val apacheCommonsCSVVersion = "1.11.0"
+val scalacticVersion = "3.2.18"
+val scalaTestVersion = "3.2.18"
+val scalaMockVersion = "6.0.0"
+val scalaLoggingVersion = "3.9.5"
+val logbackClassicVersion = "1.5.6"
+val sodsVersion = "1.6.7"
+val log4jVersion = "2.23.1"
+
+lazy val creds = {
+  sys.env.get("CI_JOB_TOKEN") match {
+    case Some(token) =>
+      Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
+    case _ =>
+      Credentials(Path.userHome / ".sbt" / ".credentials")
+  }
+}
+
+// Registry ID is the project ID of the project where the package is published, this should be set in the CI/CD environment
+val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").getOrElse("")
+
 lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
-    Defaults.itSettings,
     name              := "consumer-spreadsheetconverter",
-    scalaVersion      := "2.13.3",
+    scalaVersion := scala_2_13,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
@@ -20,41 +49,24 @@ lazy val root = (project in file("."))
       "-Xlint"
     ),
     useCoursier      := false,
-    resolvers         ++= Seq(
-      "gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven",
+    crossScalaVersions := scala_2_13 :: Nil,
+    resolvers ++= Seq(
+      "gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven",
       "Maven Public" at "https://repo1.maven.org/maven2"),
-    updateOptions     := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
-    credentials       += {
-      sys.env.get("CI_JOB_TOKEN") match {
-        case Some(p) =>
-          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", p)
-        case None =>
-          Credentials(Path.userHome / ".sbt" / ".credentials")
-      }
+    publishTo := {
+      Some("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven")
     },
+    credentials += creds,
+    updateOptions     := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
     libraryDependencies ++= {
-      val doclibCommonVersion = "4.0.1"
-
-      val configVersion = "1.4.2"
-      val akkaVersion = "2.8.1"
-      val catsVersion = "2.9.0"
-      val apachePoiVersion = "5.2.2"
-      val scalacticVersion = "3.2.15"
-      val scalaTestVersion = "3.2.15"
-      val scalaMockVersion = "5.2.0"
-      val scalaLoggingVersion = "3.9.5"
-      val logbackClassicVersion = "1.4.7"
-      val sodsVersion = "1.5.2"
-      val log4jVersion = "2.20.0"
-
       Seq(
         "org.scalactic" %% "scalactic"                  % scalacticVersion,
-        "org.scalatest" %% "scalatest"                  % scalaTestVersion % "it,test",
-        "org.scalamock" %% "scalamock"                  % scalaMockVersion % "it,test",
-        "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
-        "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
+        "org.scalatest" %% "scalatest"                  % scalaTestVersion % "test",
+        "org.scalamock" %% "scalamock"                  % scalaMockVersion % "test",
+        "org.apache.pekko" %% "pekko-testkit"           % pekkoVersion % "test",
+        "org.apache.pekko" %% "pekko-slf4j"             % pekkoVersion,
         "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
-        "org.apache.logging.log4j" % "log4j-core"         % log4jVersion,
+        "org.apache.logging.log4j" % "log4j-core"       % log4jVersion,
         "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
         "com.typesafe" % "config"                       % configVersion,
         "org.typelevel" %% "cats-kernel"                % catsVersion,
@@ -62,7 +74,8 @@ lazy val root = (project in file("."))
         "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
         "org.apache.poi" % "poi"                        % apachePoiVersion,
         "org.apache.poi" % "poi-ooxml"                  % apachePoiVersion,
-        "com.github.miachm.sods" % "SODS"               % sodsVersion
+        "com.github.miachm.sods" % "SODS"               % sodsVersion,
+        "org.apache.commons" % "commons-csv"            % apacheCommonsCSVVersion
       )
     }.map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
@@ -119,5 +132,19 @@ lazy val root = (project in file("."))
     )
   )
 
+lazy val it = project
+  .in(file("it"))  //it test located in a directory named "it"
+  .settings(
+    name := "consumer-prefetch-it",
+    scalaVersion := "2.13.14",
+    libraryDependencies ++= {
+      Seq(
+        "org.scalatest" %% "scalatest" % scalaTestVersion,
+        "org.scalamock" %% "scalamock" % scalaMockVersion,
+        "org.apache.pekko" %% "pekko-testkit" % pekkoVersion
+      )
+    }
+  )
+  .dependsOn(root)
 
 
